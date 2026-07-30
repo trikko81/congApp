@@ -5,6 +5,7 @@
 - **Strict Citation Format**: Citations in responses must format as hyperlinked inline badges: `[DocName, Page X, ¶Y]`.
 
 ## 2. Code Quality & Standards
+- **Comment Policy**: Keep comments minimal and sparse. Write self-documenting code with clear naming; do not add obvious comments or line-by-line annotations.
 - **Python 3.10+**:
   - Enforce strict typing (`typing` module) for all function signatures.
   - Follow PEP 8 guidelines. Use f-strings for string formatting.

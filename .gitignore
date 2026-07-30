@@ -1,8 +1,25 @@
+# Dependencies & Environments
 node_modules/
+.venv
+
+# Environment Variables
 .env
-.env.local
+.env*.local
+
+# Build & Temp Outputs
 dist/
 build/
+TEMPPDF/
+
+# Python
+__pycache__/
+*.pyc
+
+# IDEs & System Files
+.vscode/
 .DS_Store
-GEMINI.md
+
+# Agent / Tool Configurations
 .agents
+.agentconfig
+GEMINI.md
