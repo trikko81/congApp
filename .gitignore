@@ -5,3 +5,4 @@ dist/
 build/
 .DS_Store
 GEMINI.md
+.agents
