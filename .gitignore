@@ -10,6 +10,12 @@ node_modules/
 dist/
 build/
 TEMPPDF/
+qdrant_db/
+*.lock
+*.meta.json
+*.storage
+*.sqlite
+*.db
 
 # Python
 __pycache__/

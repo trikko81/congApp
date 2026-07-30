@@ -1,6 +1,7 @@
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+# pyrefly: ignore [missing-import]
 import pymupdf
 import re
 
