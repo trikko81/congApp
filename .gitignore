@@ -1,12 +1,22 @@
 # Dependencies & Environments
 node_modules/
-.venv
+.venv/
+env/
+venv/
+ENV/
 
-# Environment Variables
+# Next.js Build Outputs & Cache
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Environment Variables & Local Overrides
 .env
 .env*.local
+.env.production
+.env.development
 
-# Build & Temp Outputs
+# Build & Vector Store Temp Data
 dist/
 build/
 TEMPPDF/
@@ -17,15 +27,28 @@ qdrant_db/
 *.sqlite
 *.db
 
-# Python
+# Python Caches & Compiled Bytecode
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
 
-# IDEs & System Files
+# Logs & Diagnostics
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDEs, System Files & Vercel
 .vscode/
+.idea/
 .DS_Store
+Thumbs.db
+.vercel/
+*.tsbuildinfo
 
-# Agent / Tool Configurations
-.agents
+# Agent / Tool Configurations & Instructions
+.agents/
 .agentconfig
 GEMINI.md
