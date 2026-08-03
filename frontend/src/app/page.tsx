@@ -1,12 +1,23 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
+
+const PdfViewer = dynamic(() => import("@/components/PdfViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="pdf-viewer-status">
+      <span>Initializing Canvas Viewer...</span>
+    </div>
+  ),
+});
 
 interface Citation {
   docTitle: string;
   page: number;
   paragraph: number;
   snippet: string;
+  bbox?: [number, number, number, number];
 }
 
 interface Message {
@@ -40,7 +51,7 @@ export default function OrdinanceRAGPage() {
         text: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
         citations: [
           {
-            docTitle: "Lorem_Ipsum_Dolor_Sit_Amet.pdf",
+            docTitle: "S5087_Clean_Air_Act_Renewable_Biomass_Amendment.pdf",
             page: 1,
             paragraph: 2,
             snippet: "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.",
@@ -52,7 +63,7 @@ export default function OrdinanceRAGPage() {
 
   const [inputQuery, setInputQuery] = useState("");
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>({
-    docTitle: "Lorem_Ipsum_Dolor_Sit_Amet.pdf",
+    docTitle: "S5087_Clean_Air_Act_Renewable_Biomass_Amendment.pdf",
     page: 1,
     paragraph: 2,
     snippet:
@@ -100,7 +111,7 @@ export default function OrdinanceRAGPage() {
         text: `Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.`,
         citations: [
           {
-            docTitle: "Lorem_Ipsum_Dolor_Sit_Amet.pdf",
+            docTitle: "S5087_Clean_Air_Act_Renewable_Biomass_Amendment.pdf",
             page: 2,
             paragraph: 1,
             snippet: "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.",
@@ -242,39 +253,16 @@ export default function OrdinanceRAGPage() {
               </span>
             </header>
 
-            <div className="pdf-placeholder">
-              {selectedCitation ? (
-                <div className="pdf-canvas-mock">
-                  <div style={{ borderBottom: "1px solid var(--border-subtle)", paddingBottom: "12px", marginBottom: "16px" }}>
-                    <h3 style={{ fontSize: "1.1rem" }}>
-                      LOREM IPSUM DOLOR SIT AMET
-                    </h3>
-                    <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontFamily: "var(--font-main)" }}>
-                      Document: {selectedCitation.docTitle}
-                    </p>
-                  </div>
-
-                  <p style={{ lineHeight: 1.8, marginBottom: "12px" }}>
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-                  </p>
-
-                  <div className="highlight-box">
-                    <span style={{ fontSize: "0.7rem", fontWeight: "bold", fontFamily: "var(--font-main)", display: "block", marginBottom: "2px" }}>
-                      Active Citation Match (Page {selectedCitation.page}, Paragraph {selectedCitation.paragraph})
-                    </span>
-                    <p style={{ fontWeight: 500, lineHeight: 1.7 }}>
-                      {selectedCitation.snippet}
-                    </p>
-                  </div>
-
-                  <p style={{ lineHeight: 1.8, marginTop: "12px" }}>
-                    At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident...
-                  </p>
-                </div>
-              ) : (
+            {selectedCitation ? (
+              <PdfViewer
+                pdfUrl={`/${selectedCitation.docTitle}`}
+                activeCitation={selectedCitation}
+              />
+            ) : (
+              <div className="pdf-viewer-status">
                 <p>Select a citation badge in the left panel to auto-scroll and highlight the PDF.</p>
-              )}
-            </div>
+              </div>
+            )}
           </section>
         </div>
       </main>

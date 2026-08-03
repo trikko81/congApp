@@ -1,0 +1,18 @@
+{
+  "plan": ".asw/plans/pdf-js-viewer-and-citation-sync.md",
+  "activeTask": "Final Verification Completed",
+  "completed": [
+    "Task 1: Install PDF.js dependency & create reusable PdfViewer component",
+    "Task 2: Replace static paper sheet mock in frontend/src/app/page.tsx with PdfViewer",
+    "Task 3: Implement Citation Sync (Auto-scroll & Highlight Bounding Box Overlay)"
+  ],
+  "artifacts": [
+    "frontend/src/components/PdfViewer.tsx",
+    "frontend/src/app/page.tsx",
+    "frontend/src/app/globals.css"
+  ],
+  "cleanup": [
+    "Stopped dev server background task"
+  ],
+  "blockers": []
+}

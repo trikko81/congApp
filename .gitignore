@@ -32,6 +32,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.cache/
 
 # Logs & Diagnostics
 *.log
@@ -47,6 +53,9 @@ yarn-error.log*
 Thumbs.db
 .vercel/
 *.tsbuildinfo
+*.swp
+*.swo
+*~
 
 # Agent / Tool Configurations & Instructions
 .agents/
