@@ -1,18 +1,16 @@
 {
-  "plan": ".asw/plans/pdf-js-viewer-and-citation-sync.md",
-  "activeTask": "Final Verification Completed",
+  "plan": ".asw/plans/proper-pdf-highlighting-and-alignment.md",
+  "activeTask": "Complete",
   "completed": [
-    "Task 1: Install PDF.js dependency & create reusable PdfViewer component",
-    "Task 2: Replace static paper sheet mock in frontend/src/app/page.tsx with PdfViewer",
-    "Task 3: Implement Citation Sync (Auto-scroll & Highlight Bounding Box Overlay)"
+    "Task 1: Fix PDF Canvas Alignment & Container Scale Calculation",
+    "Task 2: Implement Dynamic Text Snippet BBox Matching",
+    "Task 3: Refactor Highlight Overlay Styling (Non-Obscuring Highlighter & External Floating Tag)",
+    "Final Verification Wave"
   ],
   "artifacts": [
     "frontend/src/components/PdfViewer.tsx",
-    "frontend/src/app/page.tsx",
     "frontend/src/app/globals.css"
   ],
-  "cleanup": [
-    "Stopped dev server background task"
-  ],
+  "cleanup": [],
   "blockers": []
 }

@@ -37,38 +37,10 @@ export default function OrdinanceRAGPage() {
   const [theme, setTheme] = useState<"slate" | "contrast" | "coastal" | "charcoal" | "warm">("slate");
   const [isTyping, setIsTyping] = useState(false);
 
-  const [turns, setTurns] = useState<Turn[]>([
-    {
-      id: "turn-1",
-      userMessage: {
-        id: "msg-1",
-        sender: "user",
-        text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-      },
-      assistantMessage: {
-        id: "msg-2",
-        sender: "assistant",
-        text: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-        citations: [
-          {
-            docTitle: "S5087_Clean_Air_Act_Renewable_Biomass_Amendment.pdf",
-            page: 1,
-            paragraph: 2,
-            snippet: "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.",
-          },
-        ],
-      },
-    },
-  ]);
+  const [turns, setTurns] = useState<Turn[]>([]);
 
   const [inputQuery, setInputQuery] = useState("");
-  const [selectedCitation, setSelectedCitation] = useState<Citation | null>({
-    docTitle: "S5087_Clean_Air_Act_Renewable_Biomass_Amendment.pdf",
-    page: 1,
-    paragraph: 2,
-    snippet:
-      "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.",
-  });
+  const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
 
   const chatFeedRef = useRef<HTMLDivElement>(null);
 
@@ -85,14 +57,15 @@ export default function OrdinanceRAGPage() {
     }
   }, [turns, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputQuery.trim() || isTyping) return;
 
+    const queryText = inputQuery.trim();
     const turnId = `turn-${Date.now()}`;
     const userMsg: Message = {
       id: `msg-${Date.now()}`,
       sender: "user",
-      text: inputQuery,
+      text: queryText,
     };
 
     const newTurn: Turn = {
@@ -104,19 +77,66 @@ export default function OrdinanceRAGPage() {
     setInputQuery("");
     setIsTyping(true);
 
-    setTimeout(() => {
+    try {
+      let res: Response;
+      try {
+        res = await fetch("http://localhost:8000/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: queryText, limit: 3 }),
+        });
+      } catch {
+        res = await fetch("http://localhost:8001/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: queryText, limit: 3 }),
+        });
+      }
+
+      if (!res.ok) {
+        throw new Error(`Search API error: ${res.status} ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      const results: Array<{
+        doc_title: string;
+        page: number;
+        paragraph: number;
+        text_chunk: string;
+        snippet: string;
+        bbox?: [number, number, number, number];
+      }> = data.results || [];
+
+      let assistantText = "";
+      const citations: Citation[] = [];
+
+      if (results.length === 0) {
+        assistantText = `No relevant ordinance sections found matching "${queryText}".`;
+      } else {
+        assistantText = `Found ${results.length} relevant excerpt${results.length > 1 ? "s" : ""} in the bill index:\n\n` +
+          results.map((r, i) => `[${i + 1}] "${r.text_chunk || r.snippet}"`).join("\n\n");
+
+        results.forEach((r) => {
+          const cit: Citation = {
+            docTitle: r.doc_title,
+            page: r.page,
+            paragraph: r.paragraph,
+            snippet: r.text_chunk || r.snippet,
+            bbox: r.bbox,
+          };
+          citations.push(cit);
+        });
+
+        if (citations.length > 0) {
+          setSelectedCitation(citations[0]);
+        }
+      }
+
       const assistantMsg: Message = {
         id: `msg-${Date.now() + 1}`,
         sender: "assistant",
-        text: `Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.`,
-        citations: [
-          {
-            docTitle: "S5087_Clean_Air_Act_Renewable_Biomass_Amendment.pdf",
-            page: 2,
-            paragraph: 1,
-            snippet: "Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.",
-          },
-        ],
+        text: assistantText,
+        citations: citations.length > 0 ? citations : undefined,
       };
 
       setTurns((prev) =>
@@ -124,13 +144,27 @@ export default function OrdinanceRAGPage() {
           t.id === turnId ? { ...t, assistantMessage: assistantMsg } : t
         )
       );
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error("Failed to query FastAPI search API:", err);
+      const assistantMsg: Message = {
+        id: `msg-${Date.now() + 1}`,
+        sender: "assistant",
+        text: `Unable to connect to backend search engine (http://localhost:8000/api/search). Please ensure the FastAPI server is running. (${errorMessage})`,
+      };
+
+      setTurns((prev) =>
+        prev.map((t) =>
+          t.id === turnId ? { ...t, assistantMessage: assistantMsg } : t
+        )
+      );
+    } finally {
       setIsTyping(false);
-    }, 700);
+    }
   };
 
   return (
     <div className="main-viewport">
-      {/* Full Width Top Navigation Bar */}
       <nav className="top-navbar">
         <div className="nav-brand">
           <span>ORDINANCERAG</span>
@@ -147,7 +181,6 @@ export default function OrdinanceRAGPage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          {/* Interactive Theme Selector Dropdown */}
           <select
             value={theme}
             onChange={(e) => setTheme(e.target.value as "slate" | "contrast" | "coastal" | "charcoal" | "warm")}
@@ -167,10 +200,8 @@ export default function OrdinanceRAGPage() {
         </div>
       </nav>
 
-      {/* 80% Centered Container with Inset Floating Panes */}
       <main className="app-container">
         <div className="app-wrapper">
-          {/* Left Column: Interactive Chat Interface (40% Width) */}
           <section className="left-panel">
             <header className="panel-header">
               <div className="panel-header-title-group">
@@ -180,6 +211,12 @@ export default function OrdinanceRAGPage() {
             </header>
 
             <div className="chat-feed" ref={chatFeedRef}>
+              {turns.length === 0 && !isTyping && (
+                <div className="pdf-viewer-status" style={{ border: "none", background: "transparent" }}>
+                  <p>Ask a question about municipal ordinances or legislative bills to get grounded citations.</p>
+                </div>
+              )}
+
               {turns.map((turn) => (
                 <div key={turn.id} className="chat-turn-group">
                   <div className="message-card message-user">
@@ -225,7 +262,7 @@ export default function OrdinanceRAGPage() {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Lorem ipsum dolor sit amet..."
+                  placeholder="Search ordinance text or ask a question..."
                   value={inputQuery}
                   onChange={(e) => setInputQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
