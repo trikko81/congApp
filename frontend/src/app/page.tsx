@@ -102,10 +102,14 @@ export default function OrdinanceRAGPage() {
       const citations: Citation[] = [];
 
       if (results.length === 0) {
-        assistantText = `No relevant ordinance sections found matching "${queryText}".`;
+        assistantText = data.synthesized_answer || `No relevant ordinance sections found matching "${queryText}".`;
       } else {
-        assistantText = `Found ${results.length} relevant excerpt${results.length > 1 ? "s" : ""} in the bill index:\n\n` +
-          results.map((r, i) => `[${i + 1}] "${r.text_chunk || r.snippet}"`).join("\n\n");
+        if (data.synthesized_answer) {
+          assistantText = data.synthesized_answer;
+        } else {
+          assistantText = `Found ${results.length} relevant excerpt${results.length > 1 ? "s" : ""} in the bill index:\n\n` +
+            results.map((r, i) => `[${i + 1}] "${r.text_chunk || r.snippet}"`).join("\n\n");
+        }
 
         results.forEach((r) => {
           const cit: Citation = {
@@ -122,6 +126,7 @@ export default function OrdinanceRAGPage() {
           setSelectedCitation(citations[0]);
         }
       }
+
 
       const assistantMsg: Message = {
         id: `msg-${Date.now() + 1}`,

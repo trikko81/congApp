@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware

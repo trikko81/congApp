@@ -4,6 +4,9 @@ import json
 import urllib.request
 import urllib.error
 from typing import List, Dict, Any, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class LLMSynthesisService:
     """Service for LLM answer synthesis and query intent filter extraction."""
@@ -14,21 +17,34 @@ class LLMSynthesisService:
         api_key: Optional[str] = None,
         model_name: Optional[str] = None
     ):
+        load_dotenv()
         self.provider = provider or os.getenv("LLM_PROVIDER")
         self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
         self.model_name = model_name or os.getenv("LLM_MODEL")
 
         if not self.provider:
-            if os.getenv("DEEPSEEK_API_KEY"):
-                self.provider = "deepseek"
-            elif os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_API_KEY") != "your_openai_api_key_here":
-                self.provider = "openai"
-            elif os.getenv("ANTHROPIC_API_KEY"):
-                self.provider = "claude"
-            elif os.getenv("OLLAMA_BASE_URL"):
-                self.provider = "ollama"
-            else:
-                self.provider = "fallback"
+            self._resolve_provider()
+
+    def _resolve_provider(self) -> None:
+        load_dotenv()
+        deepseek_key = os.getenv("DEEPSEEK_API_KEY")
+        openai_key = os.getenv("OPENAI_API_KEY")
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+
+        if deepseek_key and deepseek_key != "your_deepseek_api_key_here":
+            self.provider = "deepseek"
+            self.api_key = deepseek_key
+        elif openai_key and openai_key != "your_openai_api_key_here":
+            self.provider = "openai"
+            self.api_key = openai_key
+        elif anthropic_key and anthropic_key != "your_anthropic_api_key_here":
+            self.provider = "claude"
+            self.api_key = anthropic_key
+        elif os.getenv("OLLAMA_BASE_URL"):
+            self.provider = "ollama"
+        else:
+            self.provider = "fallback"
+
 
     def extract_query_filters(self, query: str) -> Dict[str, Any]:
         filters: Dict[str, Any] = {}
@@ -73,6 +89,9 @@ class LLMSynthesisService:
         return citations
 
     def synthesize(self, query: str, chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if self.provider == "fallback":
+            self._resolve_provider()
+
         citations = self.build_citations(chunks)
 
         if not chunks:
@@ -81,6 +100,7 @@ class LLMSynthesisService:
                 "llm_provider": self.provider,
                 "citations": []
             }
+
 
         context_lines = []
         for idx, item in enumerate(citations, 1):
