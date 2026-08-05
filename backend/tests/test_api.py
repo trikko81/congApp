@@ -50,6 +50,11 @@ def test_search_endpoint():
             assert item["paragraph"] == 2
             assert item["snippet"] == "This is a clean air act section about renewable biomass."
             assert item["bbox"] == [10.0, 20.0, 100.0, 200.0]
+            assert "synthesized_answer" in data
+            assert data["synthesized_answer"] is not None
+            assert "citations" in data
+            assert len(data["citations"]) == 1
+
 
 def test_get_document_success():
     with TestClient(app) as client:

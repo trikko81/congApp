@@ -1,15 +1,17 @@
 {
-  "plan": ".asw/plans/proper-pdf-highlighting-and-alignment.md",
-  "activeTask": "Complete",
+  "plan": ".asw/plans/llm-synthesis-layer.md",
+  "activeTask": "COMPLETE",
   "completed": [
-    "Task 1: Fix PDF Canvas Alignment & Container Scale Calculation",
-    "Task 2: Implement Dynamic Text Snippet BBox Matching",
-    "Task 3: Refactor Highlight Overlay Styling (Non-Obscuring Highlighter & External Floating Tag)",
-    "Final Verification Wave"
+    "Task 1: Update API schemas for synthesis and filter parameters",
+    "Task 2: Build LLM Synthesis Service with DeepSeek, Ollama, OpenAI, Claude, and Fallback support",
+    "Task 3: Integrate synthesis layer and filter routing into POST /api/search"
   ],
   "artifacts": [
-    "frontend/src/components/PdfViewer.tsx",
-    "frontend/src/app/globals.css"
+    "backend/llm_synthesis.py",
+    "backend/schemas.py",
+    "backend/main.py",
+    "backend/tests/test_llm.py",
+    "backend/tests/test_api.py"
   ],
   "cleanup": [],
   "blockers": []
