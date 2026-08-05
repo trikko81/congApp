@@ -18,6 +18,7 @@ class LLMSynthesisService:
         model_name: Optional[str] = None
     ):
         load_dotenv()
+        self.explicit_provider = provider
         self.provider = provider or os.getenv("LLM_PROVIDER")
         self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
         self.model_name = model_name or os.getenv("LLM_MODEL")
@@ -26,6 +27,8 @@ class LLMSynthesisService:
             self._resolve_provider()
 
     def _resolve_provider(self) -> None:
+        if self.explicit_provider:
+            return
         load_dotenv()
         deepseek_key = os.getenv("DEEPSEEK_API_KEY")
         openai_key = os.getenv("OPENAI_API_KEY")
@@ -44,6 +47,7 @@ class LLMSynthesisService:
             self.provider = "ollama"
         else:
             self.provider = "fallback"
+
 
 
     def extract_query_filters(self, query: str) -> Dict[str, Any]:
@@ -142,7 +146,14 @@ class LLMSynthesisService:
 
     def _call_deepseek(self, prompt: str) -> str:
         base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-        model = self.model_name or "deepseek-chat"
+        raw_model = self.model_name or os.getenv("LLM_MODEL") or "deepseek-chat"
+        # DeepSeek API valid models are 'deepseek-chat' and 'deepseek-reasoner'
+        if raw_model in ["deepseek-chat", "deepseek-reasoner"]:
+            model = raw_model
+        else:
+            print(f"Notice: Model '{raw_model}' is not a valid DeepSeek API model name. Using 'deepseek-chat'.")
+            model = "deepseek-chat"
+
         api_key = self.api_key or os.getenv("DEEPSEEK_API_KEY")
 
         url = f"{base_url.rstrip('/')}/v1/chat/completions"
@@ -157,9 +168,15 @@ class LLMSynthesisService:
         }).encode("utf-8")
 
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            return body["choices"][0]["message"]["content"].strip()
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+                return body["choices"][0]["message"]["content"].strip()
+        except urllib.error.HTTPError as http_err:
+            error_body = http_err.read().decode("utf-8", errors="ignore")
+            print(f"DeepSeek API HTTP {http_err.code} Error: {error_body}")
+            raise http_err
+
 
     def _call_openai(self, prompt: str) -> str:
         api_key = self.api_key or os.getenv("OPENAI_API_KEY")
