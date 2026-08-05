@@ -78,20 +78,11 @@ export default function OrdinanceRAGPage() {
     setIsTyping(true);
 
     try {
-      let res: Response;
-      try {
-        res = await fetch("http://localhost:8000/api/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: queryText, limit: 3 }),
-        });
-      } catch {
-        res = await fetch("http://localhost:8001/api/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: queryText, limit: 3 }),
-        });
-      }
+      const res = await fetch("http://localhost:8000/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: queryText, limit: 3 }),
+      });
 
       if (!res.ok) {
         throw new Error(`Search API error: ${res.status} ${res.statusText}`);

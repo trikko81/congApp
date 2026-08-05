@@ -25,7 +25,7 @@ def kill_stale_ports(ports: List[int]) -> None:
         try:
             cmd = f'powershell -Command "Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object {{ Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }}"'
             subprocess.run(cmd, shell=True, capture_output=True)
-        except Exception:
+        except subprocess.SubprocessError:
             pass
 
 

@@ -3,7 +3,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -38,7 +38,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware for localhost:3000
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -76,8 +75,8 @@ def search_documents(request: SearchRequest):
     formatted_results = []
     for item in results_data:
         payload = item.get("payload", {})
-        meta = payload.get("metadata", {})
-        bbox = meta.get("bbox") if isinstance(meta, dict) else None
+        meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        bbox = meta.get("bbox")
 
         formatted_results.append(
             SearchResultItem(
@@ -89,7 +88,7 @@ def search_documents(request: SearchRequest):
                 text_chunk=payload.get("text_chunk", ""),
                 snippet=payload.get("text_chunk", ""),
                 bbox=bbox,
-                metadata=meta if isinstance(meta, dict) else {}
+                metadata=meta
             )
         )
 

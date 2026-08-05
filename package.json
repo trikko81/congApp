@@ -1,0 +1,9 @@
+{
+  "name": "cong-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "python start.py",
+    "start": "python start.py"
+  }
+}

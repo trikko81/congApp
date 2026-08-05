@@ -41,27 +41,28 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load PDF Document with backend fallback
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-    setError(null);
-    setRenderedPages({});
-
-    // Cancel any ongoing render tasks
+  const cancelRenderTasks = () => {
     Object.values(renderTasksRef.current).forEach((task) => {
       try {
         task?.cancel();
       } catch {}
     });
     renderTasksRef.current = {};
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
+    setRenderedPages({});
+
+    cancelRenderTasks();
 
     const tryLoad = async () => {
       const filename = pdfUrl.split("/").pop() || "";
       const urlsToTry = [
         pdfUrl,
         `http://localhost:8000/api/documents/${filename}`,
-        `http://localhost:8001/api/documents/${filename}`,
       ];
 
       for (const url of urlsToTry) {
@@ -89,16 +90,10 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
 
     return () => {
       isMounted = false;
-      Object.values(renderTasksRef.current).forEach((task) => {
-        try {
-          task?.cancel();
-        } catch {}
-      });
-      renderTasksRef.current = {};
+      cancelRenderTasks();
     };
   }, [pdfUrl]);
 
-  // Render individual page canvas inside wrapper element
   const renderPage = useCallback(
     async (pageNumber: number, wrapperEl: HTMLDivElement) => {
       if (!pdfDoc) return;
@@ -106,11 +101,9 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
         const page = await pdfDoc.getPage(pageNumber);
         const unscaledViewport = page.getViewport({ scale: 1.0 });
         
-        // Calculate target display width based on container / wrapper width
         const availableWidth = wrapperEl.clientWidth || (containerRef.current ? containerRef.current.clientWidth - 48 : 600);
         const baseScale = Math.min(availableWidth / unscaledViewport.width, 1.4);
         
-        // High DPI display support (Retina / Windows display scaling)
         const pixelRatio = window.devicePixelRatio || 1;
         const scaledViewport = page.getViewport({ scale: baseScale * pixelRatio });
         const displayViewport = page.getViewport({ scale: baseScale });
@@ -118,23 +111,19 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
         const displayWidth = Math.floor(displayViewport.width);
         const displayHeight = Math.floor(displayViewport.height);
 
-        // Canvas setup inside wrapperEl
         let canvas = wrapperEl.querySelector<HTMLCanvasElement>("canvas");
         if (!canvas) {
           canvas = document.createElement("canvas");
           wrapperEl.prepend(canvas);
         }
 
-        // Set physical bitmap dimensions (scaled by pixelRatio)
         canvas.width = Math.floor(scaledViewport.width);
         canvas.height = Math.floor(scaledViewport.height);
-        // Set CSS display dimensions
         canvas.style.width = `${displayWidth}px`;
         canvas.style.height = `${displayHeight}px`;
 
         const ctx = canvas.getContext("2d");
         if (ctx) {
-          // Cancel previous render on this page if active
           if (renderTasksRef.current[pageNumber]) {
             try {
               renderTasksRef.current[pageNumber]?.cancel();
@@ -149,25 +138,23 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
 
           try {
             await renderTask.promise;
-          } catch (err: any) {
-            if (err?.name === "RenderingCancelledException") {
+          } catch (err: unknown) {
+            if (err && typeof err === "object" && "name" in err && err.name === "RenderingCancelledException") {
               return;
             }
             throw err;
           }
         }
 
-        // Extract text items for exact snippet matching in CSS coordinates
         const textItems: Array<{ str: string; x: number; y: number; width: number; height: number }> = [];
         try {
           const textContent = await page.getTextContent();
-          textContent.items.forEach((item: any) => {
-            if ("str" in item && item.str.trim()) {
-              const tx = item.transform;
-              // convert PDF point to CSS display coordinates
+          textContent.items.forEach((item: Record<string, unknown>) => {
+            if ("str" in item && typeof item.str === "string" && item.str.trim()) {
+              const tx = item.transform as number[];
               const [ptX, ptY] = displayViewport.convertToViewportPoint(tx[4], tx[5]);
-              const itemWidth = (item.width || 0) * baseScale;
-              const itemHeight = (item.height || 12) * baseScale;
+              const itemWidth = ((item.width as number) || 0) * baseScale;
+              const itemHeight = ((item.height as number) || 12) * baseScale;
               textItems.push({
                 str: item.str,
                 x: ptX,
@@ -193,8 +180,8 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
             textItems,
           },
         }));
-      } catch (err: any) {
-        if (err?.name !== "RenderingCancelledException") {
+      } catch (err: unknown) {
+        if (!err || typeof err !== "object" || !("name" in err) || err.name !== "RenderingCancelledException") {
           console.error(`Error rendering PDF page ${pageNumber}:`, err);
         }
       }
