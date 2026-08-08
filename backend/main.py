@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, Any
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -53,7 +53,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,6 +70,14 @@ def root():
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
+
+def safe_int(val: Any, default: int = 0) -> int:
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
 
 @app.post("/api/search", response_model=SearchResponse)
 def search_documents(request: SearchRequest):
@@ -100,14 +108,17 @@ def search_documents(request: SearchRequest):
         meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
         bbox = meta.get("bbox")
         text_chunk = payload.get("text_chunk", "")
+        doc_title = payload.get("doc_title") or meta.get("source_path") or meta.get("doc_title") or "Document"
+        page = safe_int(payload.get("page") or meta.get("page"))
+        paragraph = safe_int(payload.get("paragraph") or meta.get("paragraph"))
 
         formatted_results.append(
             SearchResultItem(
                 id=str(item.get("id")),
                 score=float(item.get("score", 0.0)),
-                doc_title=payload.get("doc_title", ""),
-                page=int(payload.get("page", 0)),
-                paragraph=int(payload.get("paragraph", 0)),
+                doc_title=doc_title,
+                page=page,
+                paragraph=paragraph,
                 text_chunk=text_chunk,
                 snippet=text_chunk,
                 bbox=bbox,
@@ -115,9 +126,9 @@ def search_documents(request: SearchRequest):
             )
         )
         raw_chunks_for_synthesis.append({
-            "doc_title": payload.get("doc_title", ""),
-            "page": int(payload.get("page", 0)),
-            "paragraph": int(payload.get("paragraph", 0)),
+            "doc_title": doc_title,
+            "page": page,
+            "paragraph": paragraph,
             "text_chunk": text_chunk,
             "snippet": text_chunk
         })
@@ -127,10 +138,13 @@ def search_documents(request: SearchRequest):
     citations = None
 
     if request.enable_synthesis and raw_chunks_for_synthesis:
-        synth_result = synthesis_svc.synthesize(request.query, raw_chunks_for_synthesis)
-        synthesized_answer = synth_result.get("synthesized_answer")
-        llm_provider = synth_result.get("llm_provider")
-        citations = synth_result.get("citations")
+        try:
+            synth_result = synthesis_svc.synthesize(request.query, raw_chunks_for_synthesis)
+            synthesized_answer = synth_result.get("synthesized_answer")
+            llm_provider = synth_result.get("llm_provider")
+            citations = synth_result.get("citations")
+        except Exception as exc:
+            print(f"Error during LLM synthesis: {exc}")
 
     return SearchResponse(
         results=formatted_results,
@@ -138,6 +152,7 @@ def search_documents(request: SearchRequest):
         llm_provider=llm_provider,
         citations=citations
     )
+
 
 
 @app.get("/api/documents/{name}")

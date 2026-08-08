@@ -61,3 +61,20 @@ def test_deepseek_synthesis_mock():
         result = service.synthesize("What are Virginia rules?", chunks)
         assert "clean air rules apply" in result["synthesized_answer"]
         assert result["llm_provider"] == "deepseek"
+
+def test_gemini_synthesis_mock():
+    service = LLMSynthesisService(provider="gemini", api_key="AIzaSyTestKey")
+    chunks = [
+        {
+            "doc_title": "Water_Pollution_Act.pdf",
+            "page": 5,
+            "paragraph": 2,
+            "snippet": "Discharge standards for municipal waterways."
+        }
+    ]
+    with patch("backend.llm_synthesis.LLMSynthesisService._call_gemini") as mock_call:
+        mock_call.return_value = "Based on Water_Pollution_Act.pdf [p. 5, par. 2], discharge standards apply."
+        result = service.synthesize("What are discharge standards?", chunks)
+        assert "discharge standards apply" in result["synthesized_answer"]
+        assert result["llm_provider"] == "gemini"
+

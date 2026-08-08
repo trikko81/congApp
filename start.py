@@ -41,7 +41,7 @@ def main() -> None:
         "backend.main:app",
         "--reload",
         "--port",
-        "8000"
+        "8001"
     ]
     
     npm_cmd: str = "npm.cmd" if os.name == "nt" else "npm"
@@ -56,7 +56,7 @@ def main() -> None:
     processes: List[subprocess.Popen] = []
     
     print("🚀 Starting CongApp Development Servers...")
-    print(f"🔹 Backend:  http://localhost:8000 (FastAPI)")
+    print(f"🔹 Backend:  http://localhost:8001 (FastAPI)")
     print(f"🔹 Frontend: http://localhost:3000 (Next.js)")
     print("Press Ctrl+C to stop all servers.\n")
     

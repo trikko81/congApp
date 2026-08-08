@@ -20,7 +20,7 @@ class LLMSynthesisService:
         load_dotenv()
         self.explicit_provider = provider
         self.provider = provider or os.getenv("LLM_PROVIDER")
-        self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
         self.model_name = model_name or os.getenv("LLM_MODEL")
 
         if not self.provider:
@@ -31,12 +31,16 @@ class LLMSynthesisService:
             return
         load_dotenv()
         deepseek_key = os.getenv("DEEPSEEK_API_KEY")
+        gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         openai_key = os.getenv("OPENAI_API_KEY")
         anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
         if deepseek_key and deepseek_key != "your_deepseek_api_key_here":
             self.provider = "deepseek"
             self.api_key = deepseek_key
+        elif gemini_key and gemini_key != "your_gemini_api_key_here":
+            self.provider = "gemini"
+            self.api_key = gemini_key
         elif openai_key and openai_key != "your_openai_api_key_here":
             self.provider = "openai"
             self.api_key = openai_key
@@ -47,8 +51,6 @@ class LLMSynthesisService:
             self.provider = "ollama"
         else:
             self.provider = "fallback"
-
-
 
     def extract_query_filters(self, query: str) -> Dict[str, Any]:
         filters: Dict[str, Any] = {}
@@ -105,10 +107,10 @@ class LLMSynthesisService:
                 "citations": []
             }
 
-
         context_lines = []
         for idx, item in enumerate(citations, 1):
-            context_lines.append(f"Source {idx} {item['citation_label']}:\n{item['snippet']}")
+            clean_text = self._clean_snippet(item['snippet'])
+            context_lines.append(f"Source {idx} {item['citation_label']}:\n{clean_text}")
         context_str = "\n\n".join(context_lines)
 
         prompt = (
@@ -125,6 +127,8 @@ class LLMSynthesisService:
         try:
             if self.provider == "deepseek":
                 answer = self._call_deepseek(prompt)
+            elif self.provider == "gemini":
+                answer = self._call_gemini(prompt)
             elif self.provider == "openai":
                 answer = self._call_openai(prompt)
             elif self.provider == "claude":
@@ -147,7 +151,6 @@ class LLMSynthesisService:
     def _call_deepseek(self, prompt: str) -> str:
         base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         raw_model = self.model_name or os.getenv("LLM_MODEL") or "deepseek-chat"
-        # DeepSeek API valid models are 'deepseek-chat' and 'deepseek-reasoner'
         if raw_model in ["deepseek-chat", "deepseek-reasoner"]:
             model = raw_model
         else:
@@ -177,6 +180,20 @@ class LLMSynthesisService:
             print(f"DeepSeek API HTTP {http_err.code} Error: {error_body}")
             raise http_err
 
+    def _call_gemini(self, prompt: str) -> str:
+        api_key = self.api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        model = self.model_name or "gemini-1.5-flash"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = json.dumps({
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.2}
+        }).encode("utf-8")
+
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            return body["candidates"][0]["content"]["parts"][0]["text"].strip()
 
     def _call_openai(self, prompt: str) -> str:
         api_key = self.api_key or os.getenv("OPENAI_API_KEY")
@@ -233,14 +250,33 @@ class LLMSynthesisService:
             body = json.loads(resp.read().decode("utf-8"))
             return body.get("response", "").strip()
 
+    def _clean_snippet(self, text: str) -> str:
+        cleaned = re.sub(
+            r"^(?:119TH CONGRESS|1ST SESSION|2D SESSION|\d+D CONGRESS|[A-Z0-9\-\s]{4,}—+|\. \. \.)\s*",
+            "",
+            text,
+            flags=re.IGNORECASE
+        )
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned
+
     def _fallback_synthesis(self, query: str, citations: List[Dict[str, Any]]) -> str:
-        bullets = []
+        synthesis_parts = []
         for c in citations[:3]:
-            snippet_clean = c['snippet'].replace("\n", " ")
-            bullets.append(f"- {c['citation_label']}: \"{snippet_clean}\"")
-        bullet_str = "\n".join(bullets)
+            doc_clean = c.get('doc_title', 'Document').replace('.pdf', '')
+            label = f"[{doc_clean}, p. {c.get('page', 1)}, par. {c.get('paragraph', 1)}]"
+            snippet = self._clean_snippet(c.get('snippet', ''))
+            if snippet:
+                sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', snippet) if len(s.strip()) > 15]
+                summary_text = " ".join(sentences[:2]) if sentences else snippet[:200]
+                synthesis_parts.append(f"• According to {label}, {summary_text}")
+
+        if not synthesis_parts:
+            return f"Analysis of the retrieved documents for '{query}' found no relevant specific clauses."
+
+        findings = "\n\n".join(synthesis_parts)
         return (
-            f"Based on your query '{query}', here are key relevant findings from retrieved governance documents:\n\n"
-            f"{bullet_str}\n\n"
-            f"Refer to the citations above for full document contexts."
+            f"Based on the analysis of legislative documents for '{query}':\n\n"
+            f"{findings}\n\n"
+            f"Click any citation badge below to view the original text on the PDF canvas."
         )

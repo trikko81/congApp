@@ -60,10 +60,12 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
 
     const tryLoad = async () => {
       const filename = pdfUrl.split("/").pop() || "";
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const urlsToTry = [
         pdfUrl,
-        `http://localhost:8000/api/documents/${filename}`,
+        `${apiBase}/api/documents/${filename}`,
       ];
+
 
       for (const url of urlsToTry) {
         if (!isMounted) return;

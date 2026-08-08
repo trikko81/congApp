@@ -12,6 +12,8 @@ const PdfViewer = dynamic(() => import("@/components/PdfViewer"), {
   ),
 });
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 interface Citation {
   docTitle: string;
   page: number;
@@ -24,6 +26,7 @@ interface Message {
   id: string;
   sender: "user" | "assistant";
   text: string;
+  provider?: string;
   citations?: Citation[];
 }
 
@@ -78,10 +81,10 @@ export default function OrdinanceRAGPage() {
     setIsTyping(true);
 
     try {
-      const res = await fetch("http://localhost:8000/api/search", {
+      const res = await fetch(`${API_BASE_URL}/api/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: queryText, limit: 3 }),
+        body: JSON.stringify({ query: queryText, limit: 3, enable_synthesis: true }),
       });
 
       if (!res.ok) {
@@ -107,8 +110,16 @@ export default function OrdinanceRAGPage() {
         if (data.synthesized_answer) {
           assistantText = data.synthesized_answer;
         } else {
-          assistantText = `Found ${results.length} relevant excerpt${results.length > 1 ? "s" : ""} in the bill index:\n\n` +
-            results.map((r, i) => `[${i + 1}] "${r.text_chunk || r.snippet}"`).join("\n\n");
+          assistantText = `Based on the analysis of retrieved legislative documents for "${queryText}":\n\n` +
+            results.slice(0, 3).map((r) => {
+              const docClean = r.doc_title.replace(".pdf", "");
+              const snippetClean = (r.text_chunk || r.snippet || "")
+                .replace(/^(?:119TH CONGRESS|1ST SESSION|2D SESSION|\d+D CONGRESS|[A-Z0-9\-\s]{4,}—+|\. \. \.)\s*/i, "")
+                .replace(/\s+/g, " ")
+                .trim();
+              return `• According to [${docClean}, p. ${r.page}, par. ${r.paragraph}], ${snippetClean.slice(0, 200)}...`;
+            }).join("\n\n") +
+            `\n\nClick any citation badge below to view the original text on the PDF canvas.`;
         }
 
         results.forEach((r) => {
@@ -127,11 +138,11 @@ export default function OrdinanceRAGPage() {
         }
       }
 
-
       const assistantMsg: Message = {
         id: `msg-${Date.now() + 1}`,
         sender: "assistant",
         text: assistantText,
+        provider: data.llm_provider,
         citations: citations.length > 0 ? citations : undefined,
       };
 
@@ -146,7 +157,7 @@ export default function OrdinanceRAGPage() {
       const assistantMsg: Message = {
         id: `msg-${Date.now() + 1}`,
         sender: "assistant",
-        text: `Unable to connect to backend search engine (http://localhost:8000/api/search). Please ensure the FastAPI server is running. (${errorMessage})`,
+        text: `Unable to connect to backend search engine (${API_BASE_URL}/api/search). Please ensure the FastAPI server is running. (${errorMessage})`,
       };
 
       setTurns((prev) =>
@@ -221,7 +232,12 @@ export default function OrdinanceRAGPage() {
 
                   {turn.assistantMessage && (
                     <div className="message-card message-assistant">
-                      <p>{turn.assistantMessage.text}</p>
+                      {turn.assistantMessage.provider && (
+                        <div style={{ marginBottom: "6px", fontSize: "0.75rem", fontWeight: 600, color: "var(--accent-primary)", opacity: 0.9, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          ⚡ Synthesis ({turn.assistantMessage.provider})
+                        </div>
+                      )}
+                      <p style={{ whiteSpace: "pre-wrap" }}>{turn.assistantMessage.text}</p>
                       {turn.assistantMessage.citations && (
                         <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "6px" }}>
                           {turn.assistantMessage.citations.map((cit, idx) => (
