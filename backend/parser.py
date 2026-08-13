@@ -221,3 +221,4 @@ if __name__ == "__main__":
         result = parser.parse_pdf(sample_pdf, max_chunks=3)
         print(f"Loaded exactly {len(result)} chunks from {sample_pdf.name}:\n")
         print(json.dumps([c.to_dict() for c in result], indent=2))
+        

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 
 // Configure pdfjs worker source using CDN matching current version
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export interface CitationHighlight {
   docTitle: string;
@@ -60,10 +60,12 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
 
     const tryLoad = async () => {
       const filename = pdfUrl.split("/").pop() || "";
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
       const urlsToTry = [
         pdfUrl,
+        `/api/documents/${filename}`,
         `${apiBase}/api/documents/${filename}`,
+        `http://localhost:8001/api/documents/${filename}`,
       ];
 
 

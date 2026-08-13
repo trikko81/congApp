@@ -26,3 +26,34 @@ class SearchResponse(BaseModel):
     llm_provider: Optional[str] = Field(default=None, description="LLM provider used for synthesis")
     citations: Optional[List[Dict[str, Any]]] = Field(default=None, description="Grounded citations referenced in answer")
 
+class BatchChunkPayload(BaseModel):
+    doc_title: str
+    text_chunk: str
+    page: int = Field(default=1)
+    paragraph: int = Field(default=1)
+    section: Optional[str] = Field(default=None)
+    ordinance_id: Optional[str] = Field(default=None)
+    date: Optional[str] = Field(default=None)
+    state: Optional[str] = Field(default="Virginia")
+    vector: Optional[List[float]] = Field(default=None)
+
+class BatchIngestRequest(BaseModel):
+    chunks: List[BatchChunkPayload]
+
+class BatchIngestResponse(BaseModel):
+    status: str
+    indexed_count: int
+    message: str
+
+class LegislativeSearchResultItem(BaseModel):
+    bill_id: str
+    title: str
+    state: str
+    enactment_year: int
+    summary: str
+    url: str
+
+class LegislativeSearchResponse(BaseModel):
+    results: List[LegislativeSearchResultItem]
+
+

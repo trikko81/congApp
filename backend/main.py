@@ -10,9 +10,19 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from backend.schemas import SearchRequest, SearchResponse, SearchResultItem
+from backend.schemas import (
+    SearchRequest,
+    SearchResponse,
+    SearchResultItem,
+    BatchIngestRequest,
+    BatchIngestResponse,
+    LegislativeSearchResponse,
+    LegislativeSearchResultItem
+)
 from backend.vector_store import VectorStoreManager
 from backend.llm_synthesis import LLMSynthesisService
+from backend.legislative_search import VirginiaLegislativeSearcher
+
 
 vector_store_manager: Optional[VectorStoreManager] = None
 llm_synthesis_service: Optional[LLMSynthesisService] = None
@@ -53,7 +63,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8001",
+        "http://127.0.0.1:8001",
+        "*"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -180,3 +196,49 @@ def get_document(name: str):
         media_type="application/pdf",
         filename=safe_filename
     )
+
+@app.post("/api/ingest/batch", response_model=BatchIngestResponse)
+def batch_ingest(request: BatchIngestRequest):
+    vsm = get_vector_store_manager()
+    raw_payloads = [chunk.model_dump() for chunk in request.chunks]
+    indexed_count = vsm.index_batch_raw(raw_payloads)
+    return BatchIngestResponse(
+        status="success",
+        indexed_count=indexed_count,
+        message=f"Indexed {indexed_count} raw chunks into Qdrant"
+    )
+
+@app.get("/api/legislative/search", response_model=LegislativeSearchResponse)
+def legislative_search(
+    query: str = "clean energy",
+    state: str = "Virginia",
+    years: str = "2016-2026",
+    limit: int = 5
+):
+    start_year, end_year = 2016, 2026
+    if "-" in years:
+        parts = years.split("-")
+        try:
+            start_year, end_year = int(parts[0]), int(parts[1])
+        except ValueError:
+            pass
+
+    searcher = VirginiaLegislativeSearcher(default_state=state, start_year=start_year, end_year=end_year)
+    results = searcher.search(query=query, limit=limit)
+    
+    pdf_dir = Path("TEMPPDF").resolve()
+    items = []
+    for doc in results:
+        searcher.download_pdf(doc, pdf_dir)
+        items.append(
+            LegislativeSearchResultItem(
+                bill_id=doc.bill_id,
+                title=doc.title,
+                state=doc.state,
+                enactment_year=doc.enactment_year,
+                summary=doc.summary,
+                url=doc.url
+            )
+        )
+    return LegislativeSearchResponse(results=items)
+

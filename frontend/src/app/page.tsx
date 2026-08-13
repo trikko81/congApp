@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 
+import LegislativeSearchModal from "@/components/LegislativeSearchModal";
+
 const PdfViewer = dynamic(() => import("@/components/PdfViewer"), {
   ssr: false,
   loading: () => (
@@ -13,6 +15,7 @@ const PdfViewer = dynamic(() => import("@/components/PdfViewer"), {
 });
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 
 interface Citation {
   docTitle: string;
@@ -39,6 +42,7 @@ interface Turn {
 export default function OrdinanceRAGPage() {
   const [theme, setTheme] = useState<"slate" | "contrast" | "coastal" | "charcoal" | "warm">("slate");
   const [isTyping, setIsTyping] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [turns, setTurns] = useState<Turn[]>([]);
 
@@ -46,6 +50,7 @@ export default function OrdinanceRAGPage() {
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
 
   const chatFeedRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -81,11 +86,21 @@ export default function OrdinanceRAGPage() {
     setIsTyping(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: queryText, limit: 3, enable_synthesis: true }),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`${API_BASE_URL}/api/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: queryText, limit: 3, enable_synthesis: true }),
+        });
+      } catch (directErr) {
+        console.warn("Direct API fetch failed, retrying via local Next.js proxy (/api/search):", directErr);
+        res = await fetch(`/api/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: queryText, limit: 3, enable_synthesis: true }),
+        });
+      }
 
       if (!res.ok) {
         throw new Error(`Search API error: ${res.status} ${res.statusText}`);
@@ -203,6 +218,9 @@ export default function OrdinanceRAGPage() {
           <span style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.85)", fontFamily: "var(--font-code)" }}>
             383 Chunks Vectorized
           </span>
+          <button className="nav-cta-btn" onClick={() => setIsModalOpen(true)} style={{ background: "#3b82f6" }}>
+            VA Law Finder (2016-2026)
+          </button>
           <button className="nav-cta-btn">Export Vault</button>
         </div>
       </nav>
@@ -315,6 +333,21 @@ export default function OrdinanceRAGPage() {
           </section>
         </div>
       </main>
+
+      <LegislativeSearchModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        apiBaseUrl={API_BASE_URL}
+        onLawSelect={(docTitle) => {
+          setSelectedCitation({
+            docTitle,
+            page: 1,
+            paragraph: 1,
+            snippet: "Selected Virginia Legislative PDF",
+          });
+        }}
+      />
     </div>
   );
 }
+

@@ -1,9 +1,12 @@
 import os
 import ssl
+import json
 import uuid
 from pathlib import Path
+
 from typing import List, Dict, Any, Optional
 import urllib3
+import httpx
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import (
@@ -19,6 +22,8 @@ from fastembed import TextEmbedding
 from backend.parser import DocumentChunk
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
+os.environ["CURL_CA_BUNDLE"] = ""
 
 try:
     _create_unverified_https_context = ssl._create_unverified_context
@@ -27,7 +32,12 @@ except AttributeError:
 else:
     ssl._create_default_https_context = _create_unverified_https_context
 
-os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
+_orig_httpx_init = httpx.Client.__init__
+def _patched_httpx_init(self, *args, **kwargs):
+    kwargs['verify'] = False
+    _orig_httpx_init(self, *args, **kwargs)
+httpx.Client.__init__ = _patched_httpx_init
+
 
 
 class VectorStoreManager:
@@ -97,8 +107,91 @@ class VectorStoreManager:
                 
         print(f"Successfully indexed {total} total chunks.")
 
+    def index_batch_raw(self, chunk_payloads: List[Dict[str, Any]], batch_size: int = 100) -> int:
+        if not chunk_payloads:
+            return 0
+
+        total = len(chunk_payloads)
+        print(f"Indexing {total} raw batch chunks into Qdrant...")
+        indexed_count = 0
+
+        for i in range(0, total, batch_size):
+            batch = chunk_payloads[i : i + batch_size]
+            texts_to_embed = []
+            embed_indices = []
+
+            for idx, item in enumerate(batch):
+                if not item.get("vector"):
+                    texts_to_embed.append(item.get("text_chunk", ""))
+                    embed_indices.append(idx)
+
+            if texts_to_embed:
+                computed_vectors = self.embed_texts(texts_to_embed)
+                for idx, vec in zip(embed_indices, computed_vectors):
+                    batch[idx]["vector"] = vec
+
+            points = []
+            for item in batch:
+                point_id = str(uuid.uuid4())
+                vector = item.get("vector")
+                payload = {k: v for k, v in item.items() if k != "vector"}
+                if "doc_title" in payload and "source_doc" not in payload:
+                    payload["source_doc"] = payload["doc_title"]
+                points.append(PointStruct(id=point_id, vector=vector, payload=payload))
+
+            operation_info = self.client.upsert(
+                collection_name=self.collection_name,
+                wait=True,
+                points=points
+            )
+            if operation_info.status == UpdateStatus.COMPLETED:
+                indexed_count += len(batch)
+
+        print(f"Successfully indexed {indexed_count} total raw batch chunks.")
+        return indexed_count
+
+
+    def import_external_vectors_payload(self, file_path: str, batch_size: int = 200) -> int:
+        """Import pre-computed vectors and metadata chunks (e.g. from Google Colab GPU run)."""
+        import gzip
+        p = Path(file_path)
+        if not p.exists():
+            raise FileNotFoundError(f"Payload file not found: {file_path}")
+
+        if p.name.endswith(".gz"):
+            with gzip.open(p, "rt", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+        chunks = data if isinstance(data, list) else data.get("chunks", data.get("bills", []))
+        if not chunks:
+            print("No vector chunks found in payload.")
+            return 0
+
+        total_imported = 0
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            points = []
+            for item in batch:
+                vec = item.get("vector")
+                if vec is None:
+                    continue
+                point_id = str(uuid.uuid4())
+                payload = {k: v for k, v in item.items() if k != "vector"}
+                points.append(PointStruct(id=point_id, vector=vec, payload=payload))
+
+            if points:
+                self.client.upsert(collection_name=self.collection_name, points=points, wait=True)
+                total_imported += len(points)
+
+        print(f"Successfully imported {total_imported} pre-computed vectors into '{self.collection_name}'.")
+        return total_imported
+
     def search(self, query: str, limit: int = 5, filter_dict: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         query_vector = list(self.embedding_model.embed([query]))[0].tolist()
+
         
         qdrant_filter = None
         if filter_dict:
