@@ -45,6 +45,9 @@ def test_fallback_synthesis():
     assert "citations" in result
     assert result["llm_provider"] == "fallback"
     assert len(result["citations"]) == 1
+    assert "Based on the analysis of legislative documents for" not in result["synthesized_answer"]
+    assert "Click any citation badge below" not in result["synthesized_answer"]
+    assert "• According to [S5087_Clean_Air_Act" in result["synthesized_answer"]
 
 def test_deepseek_synthesis_mock():
     service = LLMSynthesisService(provider="deepseek", api_key="sk-test-deepseek")

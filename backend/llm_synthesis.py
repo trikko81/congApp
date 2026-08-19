@@ -114,8 +114,9 @@ class LLMSynthesisService:
         context_str = "\n\n".join(context_lines)
 
         prompt = (
-            f"You are an expert governance assistant. Answer the user question based strictly on the retrieved context below.\n"
-            f"Ground your response using citations like [DocTitle, p. X, par. Y].\n\n"
+            f"You are an expert governance assistant. Answer the user question based strictly on the retrieved context below in clean GitHub-flavored Markdown.\n"
+            f"Ground your response using exact inline citations like [DocTitle, p. X, par. Y].\n"
+            f"Do not include any conversational filler, meta-commentary, introductory pleasantries, pre-added disclaimers, or repetitive preambles. Output only the direct structured answer with Markdown headings and bullet points.\n\n"
             f"USER QUERY: {query}\n\n"
             f"RETRIEVED CONTEXT:\n{context_str}\n\n"
             f"SYNTHESIZED RESPONSE:"
@@ -272,11 +273,6 @@ class LLMSynthesisService:
                 synthesis_parts.append(f"• According to {label}, {summary_text}")
 
         if not synthesis_parts:
-            return f"Analysis of the retrieved documents for '{query}' found no relevant specific clauses."
+            return f"No specific clauses found matching query."
 
-        findings = "\n\n".join(synthesis_parts)
-        return (
-            f"Based on the analysis of legislative documents for '{query}':\n\n"
-            f"{findings}\n\n"
-            f"Click any citation badge below to view the original text on the PDF canvas."
-        )
+        return "\n\n".join(synthesis_parts)

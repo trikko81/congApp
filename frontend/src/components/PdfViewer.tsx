@@ -59,15 +59,16 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
     cancelRenderTasks();
 
     const tryLoad = async () => {
-      const filename = pdfUrl.split("/").pop() || "";
+      const rawName = pdfUrl.replace(/^\/+/, "").replace(/^api\/documents\//, "");
+      const encodedName = encodeURIComponent(rawName);
       const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
+      
       const urlsToTry = [
-        pdfUrl,
-        `/api/documents/${filename}`,
-        `${apiBase}/api/documents/${filename}`,
-        `http://localhost:8001/api/documents/${filename}`,
+        `${apiBase}/api/documents/${encodedName}`,
+        `http://localhost:8001/api/documents/${encodedName}`,
+        `/api/documents/${encodedName}`,
+        pdfUrl
       ];
-
 
       for (const url of urlsToTry) {
         if (!isMounted) return;
@@ -85,10 +86,11 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
       }
 
       if (isMounted) {
-        setError(`Failed to load PDF document (${filename}).`);
+        setError(`Failed to load PDF document (${rawName}).`);
         setLoading(false);
       }
     };
+
 
     tryLoad();
 

@@ -1,12 +1,10 @@
 {
-  "plan": ".asw/plans/va-bills-colab-qdrant-3m.md",
-  "activeTask": "Final Verification",
-  "completed": ["Task 1", "Task 2", "Task 3", "Final Verification"],
+  "plan": ".asw/plans/markdown-rag-ai-response-formatting.md",
+  "activeTask": "Task 1: Strip Pre-Added Boilerplate from Backend LLM Synthesis",
+  "completed": [],
   "artifacts": [
-    "notebooks/virginia_recent_bills_colab.ipynb",
-    "backend/tests/test_va_recent_bills.py",
-    "backend/tests/test_vector_payload_import.py"
+    ".asw/plans/markdown-rag-ai-response-formatting.md"
   ],
-  "cleanup": ["Temporary pytest fixtures and memory collections cleaned"],
+  "cleanup": [],
   "blockers": []
 }

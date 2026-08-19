@@ -57,9 +57,9 @@ def main() -> None:
     
     processes: List[subprocess.Popen] = []
     
-    print("🚀 Starting CongApp Development Servers...")
-    print(f"🔹 Backend:  http://localhost:8001 (FastAPI)")
-    print(f"🔹 Frontend: http://localhost:3000 (Next.js)")
+    print("Starting CongApp Development Servers...")
+    print(f"  Backend:  http://localhost:8001 (FastAPI)")
+    print(f"  Frontend: http://localhost:3000 (Next.js)")
     print("Press Ctrl+C to stop all servers.\n")
     
     try:
@@ -73,11 +73,11 @@ def main() -> None:
             for proc in processes:
                 poll_code = proc.poll()
                 if poll_code is not None:
-                    print(f"⚠️ Process {proc.pid} exited with code {poll_code}")
+                    print(f"Process {proc.pid} exited with code {poll_code}")
             time.sleep(1)
             
     except KeyboardInterrupt:
-        print("\n🛑 Stopping all servers...")
+        print("\nStopping all servers...")
         for proc in processes:
             if proc.poll() is None:
                 proc.terminate()
@@ -86,7 +86,8 @@ def main() -> None:
         for proc in processes:
             if proc.poll() is None:
                 proc.kill()
-        print("✅ All servers stopped successfully.")
+        print("All servers stopped successfully.")
+
 
 
 if __name__ == "__main__":
