@@ -80,25 +80,86 @@ class PDFParser:
         if not path.exists():
             raise FileNotFoundError(f"PDF file not found: {path}")
 
-        doc = pymupdf.open(path)
-        
         raw_segments = []
-        for page_num in range(len(doc)):
-            page = doc[page_num]
-            blocks = page.get_text("blocks")
-            for block in blocks:
-                text = block[4].strip()
-                if not text or block[6] != 0:
-                    continue
-                cleaned = self.cleaner.clean_text(text)
-                if not cleaned or len(cleaned.split()) < self.min_chunk_words:
-                    continue
-                raw_segments.append({
-                    "text": cleaned,
-                    "page": page_num + 1,
-                    "bbox": (block[0], block[1], block[2], block[3])
-                })
-        doc.close()
+        with pymupdf.open(path) as doc:
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                
+                # Detect strikethrough / strikeout vector lines and annotations
+                strike_lines = []
+                try:
+                    for d in page.get_drawings():
+                        for item in d.get("items", []):
+                            if item[0] == "l":  # Line
+                                p1, p2 = item[1], item[2]
+                                if abs(p1.y - p2.y) < 3.0 and abs(p1.x - p2.x) > 4.0:
+                                    min_x, max_x = min(p1.x, p2.x), max(p1.x, p2.x)
+                                    strike_lines.append((min_x, max_x, (p1.y + p2.y) / 2.0))
+                            elif item[0] == "re":  # Thin rectangle line
+                                r = item[1]
+                                if r.height < 3.5 and r.width > 4.0:
+                                    strike_lines.append((r.x0, r.x1, (r.y0 + r.y1) / 2.0))
+
+                    for annot in page.annots():
+                        if annot.type[0] == pymupdf.PDF_ANNOT_STRIKE_OUT:
+                            r = annot.rect
+                            strike_lines.append((r.x0, r.x1, (r.y0 + r.y1) / 2.0))
+                except Exception:
+                    strike_lines = []
+
+                # If strikethrough lines exist on page, filter word-by-word
+                if strike_lines:
+                    words = page.get_text("words")
+                    active_words_by_block = {}
+                    block_bboxes = {}
+
+                    for w in words:
+                        wx0, wy0, wx1, wy1, wtext, block_no, line_no, word_no = w[:8]
+                        # Check if word intersects any strike line
+                        is_struck = False
+                        for lx0, lx1, ly in strike_lines:
+                            if (wy0 - 3.0 <= ly <= wy1 + 3.0) and (lx0 <= wx1 and lx1 >= wx0):
+                                is_struck = True
+                                break
+
+                        if not is_struck and wtext.strip():
+                            if block_no not in active_words_by_block:
+                                active_words_by_block[block_no] = [wtext]
+                                block_bboxes[block_no] = [wx0, wy0, wx1, wy1]
+                            else:
+                                active_words_by_block[block_no].append(wtext)
+                                bb = block_bboxes[block_no]
+                                bb[0] = min(bb[0], wx0)
+                                bb[1] = min(bb[1], wy0)
+                                bb[2] = max(bb[2], wx1)
+                                bb[3] = max(bb[3], wy1)
+
+                    for block_no, wlist in active_words_by_block.items():
+                        block_text = " ".join(wlist).strip()
+                        cleaned = self.cleaner.clean_text(block_text)
+                        if cleaned and len(cleaned.split()) >= self.min_chunk_words:
+                            bb = block_bboxes[block_no]
+                            raw_segments.append({
+                                "text": cleaned,
+                                "page": page_num + 1,
+                                "bbox": (bb[0], bb[1], bb[2], bb[3])
+                            })
+                else:
+                    # Fast path for pages without strikethroughs
+                    blocks = page.get_text("blocks")
+                    for block in blocks:
+                        text = block[4].strip()
+                        if not text or block[6] != 0:
+                            continue
+                        cleaned = self.cleaner.clean_text(text)
+                        if not cleaned or len(cleaned.split()) < self.min_chunk_words:
+                            continue
+                        raw_segments.append({
+                            "text": cleaned,
+                            "page": page_num + 1,
+                            "bbox": (block[0], block[1], block[2], block[3])
+                        })
+
 
         merged_segments = []
         current_text = ""

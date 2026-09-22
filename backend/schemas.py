@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional
+from enum import Enum
 from pydantic import BaseModel, Field
 
 class SearchRequest(BaseModel):
@@ -57,3 +58,68 @@ class LegislativeSearchResponse(BaseModel):
     results: List[LegislativeSearchResultItem]
 
 
+class TopicCategory(str, Enum):
+    TAXES_BUDGET = "Taxes & Budget"
+    ZONING_LAND_USE = "Zoning & Land Use"
+    EDUCATION_SCHOOLS = "Education & School Board"
+    PUBLIC_SAFETY = "Public Safety & Infrastructure"
+    PARKS_REC_ENVIRONMENT = "Parks & Environment"
+    GENERAL_ADMIN = "General Governance & Administration"
+
+class ParcelLocation(BaseModel):
+    raw_match: str
+    address: Optional[str] = None
+    parcel_id: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    confidence: float = Field(default=1.0)
+
+class AgendaItem(BaseModel):
+    item_id: str
+    doc_title: str
+    title: str
+    full_text: str
+    summary_bullets: List[str] = Field(default_factory=list)
+    category: TopicCategory = Field(default=TopicCategory.GENERAL_ADMIN)
+    ordinance_id: Optional[str] = None
+    page_start: int = Field(default=1)
+    page_end: int = Field(default=1)
+    locations: List[ParcelLocation] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+class CivicFeedEntry(BaseModel):
+    item_id: str
+    doc_title: str
+    municipality: str = Field(default="Virginia Beach")
+    date: Optional[str] = None
+    title: str
+    category: TopicCategory
+    summary_bullets: List[str]
+    ordinance_id: Optional[str] = None
+    page_start: int
+    locations: List[ParcelLocation] = Field(default_factory=list)
+    geojson_feature: Optional[Dict[str, Any]] = None
+
+class FeedResponse(BaseModel):
+    entries: List[CivicFeedEntry]
+    total: int
+
+class UploadResponse(BaseModel):
+    status: str
+    filename: str
+    total_pages: int
+    total_items: int
+    categories_found: Dict[str, int]
+    parcels_found: int
+    entries: List[CivicFeedEntry]
+
+class ChatRequest(BaseModel):
+    query: str
+    history: Optional[List[Dict[str, str]]] = Field(default=None)
+    municipality: Optional[str] = Field(default=None)
+
+class ChatResponse(BaseModel):
+    answer: str
+    citations: List[Dict[str, Any]] = Field(default_factory=list)
+    parcels: List[Dict[str, Any]] = Field(default_factory=list)
+    active_tab_suggestion: str = Field(default="pdf")

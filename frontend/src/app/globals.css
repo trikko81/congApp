@@ -1,461 +1,633 @@
-:root {
-  /* Default Theme: Modern Slate */
-  --bg-page: #f8fafc;
-  --bg-panel: #ffffff;
-  --bg-paper: #ffffff;
-  --bg-elevated: #f1f5f9;
-  --bg-navbar: #0f172a;
-  
-  --accent-primary: #4f46e5;
-  --accent-primary-hover: #4338ca;
-  --accent-light: #e0e7ff;
-  
-  --text-dark: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  
-  --border-subtle: #cbd5e1;
-  --border-active: #4f46e5;
-  
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.05);
-  --shadow-hover: 0 8px 25px rgba(79, 70, 229, 0.12);
-  --shadow-paper: 0 10px 30px rgba(0, 0, 0, 0.08);
-  --shadow-input-container: 0 -4px 16px rgba(0, 0, 0, 0.04);
-  
-  --font-main: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-serif: Georgia, "Times New Roman", Times, serif;
-  --font-code: var(--font-geist-mono), monospace;
+@import "tailwindcss";
+
+/* ==========================================================================
+   TOWNWATCH — APPLE-INSPIRED DESIGN SYSTEM
+   5 Distinct Visual Themes: Theme 1 = default Apple Light (base)
+   Custom vars used site-wide must be defined in EVERY theme block.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   THEME 1 — Apple Light (Default — Pure macOS / iOS System)
+   Background: #F5F5F7 (Apple page gray), Cards: #FFFFFF, Blue: #007AFF
+   -------------------------------------------------------------------------- */
+:root,
+[data-theme="1"],
+html[data-theme="1"],
+body.theme-1 {
+  /* Surface hierarchy */
+  --bg-page:        #F5F5F7;
+  --bg-panel:       #FFFFFF;
+  --bg-elevated:    #FFFFFF;
+  --bg-navbar:      rgba(255, 255, 255, 0.82);
+  --bg-paper:       #FAFAFA;
+  --bg-input:       #F2F2F7;
+
+  /* Typography */
+  --text-dark:      #1D1D1F;
+  --text-secondary: #515154;
+  --text-muted:     #86868B;
+
+  /* Apple system blue primary */
+  --accent-primary:       #007AFF;
+  --accent-primary-hover: #0063D0;
+  --accent-light:         #EBF3FF;
+
+  /* Borders */
+  --border-subtle: rgba(0, 0, 0, 0.10);
+  --border-active: rgba(0, 120, 255, 0.30);
+
+  /* Shadows */
+  --shadow-card:             0 2px 8px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-paper:            0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-input-container:  0 -1px 0 rgba(0, 0, 0, 0.05);
+
+  /* Radius */
+  --radius-card:   14px;
+  --radius-button: 10px;
+  --radius-pill:   100px;
+  --radius-input:  10px;
+
+  /* Fonts */
+  --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  --font-code: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Tailwind token bridge */
+  --background:           #F5F5F7;
+  --foreground:           #1D1D1F;
+  --card:                 #FFFFFF;
+  --card-foreground:      #1D1D1F;
+  --popover:              #FFFFFF;
+  --popover-foreground:   #1D1D1F;
+  --primary:              #007AFF;
+  --primary-foreground:   #FFFFFF;
+  --secondary:            #F2F2F7;
+  --secondary-foreground: #1D1D1F;
+  --muted:                #F2F2F7;
+  --muted-foreground:     #86868B;
+  --accent:               #EBF3FF;
+  --accent-foreground:    #007AFF;
+  --border:               rgba(0, 0, 0, 0.10);
+  --input:                #F2F2F7;
+  --ring:                 #007AFF;
 }
 
-/* High Contrast Monochrome Theme [data-theme="contrast"] */
-[data-theme="contrast"] {
-  --bg-page: #C0C0C0;             /* Silver background for 10% margins */
-  --bg-panel: #FFFFFF;            /* Pure white panel cards */
-  --bg-paper: #FFFFFF;            /* Pure white PDF paper canvas */
-  --bg-elevated: #A9A9A9;         /* Dark Gray elevated surfaces & panel headers */
-  --bg-navbar: #000000;           /* Pure black navbar */
-  
-  --accent-primary: #000000;      /* Pure black primary brand/buttons */
-  --accent-primary-hover: #333333;
-  --accent-light: #C0C0C0;
-  
-  --text-dark: #000000;           /* High contrast black text */
-  --text-secondary: #1a1a1a;
-  --text-muted: #808080;
-  
-  --border-subtle: #808080;       /* Solid gray 1px borders */
-  --border-active: #000000;       /* Pure black active focus borders */
-  
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.15);
-  --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.25);
-  --shadow-paper: 0 10px 30px rgba(0, 0, 0, 0.3);
-  --shadow-input-container: 0 -4px 16px rgba(0, 0, 0, 0.12);
+@theme {
+  --color-background:         var(--background);
+  --color-foreground:         var(--foreground);
+  --color-card:               var(--card);
+  --color-card-foreground:    var(--card-foreground);
+  --color-popover:            var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary:            var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary:          var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:              var(--muted);
+  --color-muted-foreground:   var(--muted-foreground);
+  --color-accent:             var(--accent);
+  --color-accent-foreground:  var(--accent-foreground);
+  --color-border:             var(--border);
+  --color-input:              var(--input);
+  --color-ring:               var(--ring);
 }
 
-/* Soft Coastal Theme [data-theme="coastal"] */
-[data-theme="coastal"] {
-  --bg-page: #F1EEDC;
-  --bg-panel: #ffffff;
-  --bg-paper: #ffffff;
-  --bg-elevated: #E5DDC5;
-  --bg-navbar: #B3C8CF;
-  
-  --accent-primary: #2d4a53;       /* Dark Coastal Slate for text/buttons */
-  --accent-primary-hover: #1e3339;
-  --accent-light: #BED7DC;
-  
-  --text-dark: #2d4a53;
-  --text-secondary: #45626b;
-  --text-muted: #62828c;
-  
-  --border-subtle: #BED7DC;
-  --border-active: #2d4a53;
-  
-  --shadow-card: 0 4px 20px rgba(179, 200, 207, 0.2);
-  --shadow-hover: 0 8px 25px rgba(179, 200, 207, 0.3);
-  --shadow-paper: 0 10px 30px rgba(179, 200, 207, 0.25);
-  --shadow-input-container: 0 -4px 16px rgba(179, 200, 207, 0.15);
+/* --------------------------------------------------------------------------
+   THEME 2 — Apple Dark Mode (System dark — AMOLED-near black with blue)
+   -------------------------------------------------------------------------- */
+[data-theme="2"],
+html[data-theme="2"],
+body.theme-2 {
+  --bg-page:        #000000;
+  --bg-panel:       #1C1C1E;
+  --bg-elevated:    #2C2C2E;
+  --bg-navbar:      rgba(28, 28, 30, 0.88);
+  --bg-paper:       #1C1C1E;
+  --bg-input:       #2C2C2E;
+
+  --text-dark:      #F5F5F7;
+  --text-secondary: #AEAEB2;
+  --text-muted:     #636366;
+
+  --accent-primary:       #0A84FF;
+  --accent-primary-hover: #409CFF;
+  --accent-light:         rgba(10, 132, 255, 0.18);
+
+  --border-subtle: rgba(255, 255, 255, 0.10);
+  --border-active: rgba(10, 132, 255, 0.45);
+
+  --shadow-card:             0 2px 12px rgba(0, 0, 0, 0.45);
+  --shadow-paper:            0 4px 20px rgba(0, 0, 0, 0.55);
+  --shadow-input-container:  0 -1px 0 rgba(255, 255, 255, 0.05);
+
+  --radius-card:   14px;
+  --radius-button: 10px;
+  --radius-pill:   100px;
+  --radius-input:  10px;
+
+  --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  --font-code: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --background:           #000000;
+  --foreground:           #F5F5F7;
+  --card:                 #1C1C1E;
+  --card-foreground:      #F5F5F7;
+  --popover:              #2C2C2E;
+  --popover-foreground:   #F5F5F7;
+  --primary:              #0A84FF;
+  --primary-foreground:   #FFFFFF;
+  --secondary:            #2C2C2E;
+  --secondary-foreground: #AEAEB2;
+  --muted:                #2C2C2E;
+  --muted-foreground:     #636366;
+  --accent:               rgba(10, 132, 255, 0.18);
+  --accent-foreground:    #0A84FF;
+  --border:               rgba(255, 255, 255, 0.10);
+  --input:                #2C2C2E;
+  --ring:                 #0A84FF;
 }
 
-/* Warm Minimal Palette Theme [data-theme="warm"] */
-[data-theme="warm"] {
-  --bg-page: #F3EEEA;
-  --bg-panel: #ffffff;
-  --bg-paper: #ffffff;
-  --bg-elevated: #EBE3D5;
-  --bg-navbar: #776B5D;
-  
-  --accent-primary: #776B5D;
-  --accent-primary-hover: #5c5246;
-  --accent-light: #EBE3D5;
-  
-  --text-dark: #776B5D;
-  --text-secondary: #5c5246;
-  --text-muted: #8c8070;
-  
-  --border-subtle: #B0A695;
-  --border-active: #776B5D;
-  
-  --shadow-card: 0 4px 20px rgba(119, 107, 93, 0.08);
-  --shadow-hover: 0 8px 25px rgba(119, 107, 93, 0.15);
-  --shadow-paper: 0 10px 30px rgba(119, 107, 93, 0.1);
-  --shadow-input-container: 0 -4px 16px rgba(119, 107, 93, 0.06);
+/* --------------------------------------------------------------------------
+   THEME 3 — Apple Warm Sand (iOS 17 Warm Tinted White, earthy warm tones)
+   -------------------------------------------------------------------------- */
+[data-theme="3"],
+html[data-theme="3"],
+body.theme-3 {
+  --bg-page:        #F2EDE5;
+  --bg-panel:       #FDFAF6;
+  --bg-elevated:    #FDFAF6;
+  --bg-navbar:      rgba(253, 250, 246, 0.85);
+  --bg-paper:       #F7F3EC;
+  --bg-input:       #EDE8E0;
+
+  --text-dark:      #2B2118;
+  --text-secondary: #6B5C4A;
+  --text-muted:     #9C8875;
+
+  --accent-primary:       #BF5700;
+  --accent-primary-hover: #A04800;
+  --accent-light:         #FDECD9;
+
+  --border-subtle: rgba(100, 70, 30, 0.12);
+  --border-active: rgba(191, 87, 0, 0.35);
+
+  --shadow-card:             0 2px 10px rgba(80, 50, 20, 0.10);
+  --shadow-paper:            0 4px 18px rgba(80, 50, 20, 0.10);
+  --shadow-input-container:  0 -1px 0 rgba(80, 50, 20, 0.06);
+
+  --radius-card:   14px;
+  --radius-button: 10px;
+  --radius-pill:   100px;
+  --radius-input:  10px;
+
+  --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  --font-code: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --background:           #F2EDE5;
+  --foreground:           #2B2118;
+  --card:                 #FDFAF6;
+  --card-foreground:      #2B2118;
+  --popover:              #FDFAF6;
+  --popover-foreground:   #2B2118;
+  --primary:              #BF5700;
+  --primary-foreground:   #FFFFFF;
+  --secondary:            #EDE8E0;
+  --secondary-foreground: #2B2118;
+  --muted:                #EDE8E0;
+  --muted-foreground:     #9C8875;
+  --accent:               #FDECD9;
+  --accent-foreground:    #BF5700;
+  --border:               rgba(100, 70, 30, 0.12);
+  --input:                #EDE8E0;
+  --ring:                 #BF5700;
 }
 
-/* Modern Slate Theme [data-theme="slate"] */
-[data-theme="slate"] {
-  --bg-page: #f8fafc;
-  --bg-panel: #ffffff;
-  --bg-paper: #ffffff;
-  --bg-elevated: #f1f5f9;
-  --bg-navbar: #0f172a;
-  
-  --accent-primary: #4f46e5;
-  --accent-primary-hover: #4338ca;
-  --accent-light: #e0e7ff;
-  
-  --text-dark: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  
-  --border-subtle: #cbd5e1;
-  --border-active: #4f46e5;
-  
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.05);
-  --shadow-hover: 0 8px 25px rgba(79, 70, 229, 0.12);
-  --shadow-paper: 0 10px 30px rgba(0, 0, 0, 0.08);
-  --shadow-input-container: 0 -4px 16px rgba(0, 0, 0, 0.04);
+/* --------------------------------------------------------------------------
+   THEME 4 — Apple Midnight / Civic Dark (Deep navy, Apple system purple)
+   -------------------------------------------------------------------------- */
+[data-theme="4"],
+html[data-theme="4"],
+body.theme-4 {
+  --bg-page:        #09090F;
+  --bg-panel:       #111118;
+  --bg-elevated:    #18181F;
+  --bg-navbar:      rgba(12, 12, 20, 0.92);
+  --bg-paper:       #111118;
+  --bg-input:       #1E1E28;
+
+  --text-dark:      #E8E8F0;
+  --text-secondary: #8E8EA8;
+  --text-muted:     #56566A;
+
+  --accent-primary:       #BF5AF2;
+  --accent-primary-hover: #CC77F5;
+  --accent-light:         rgba(191, 90, 242, 0.15);
+
+  --border-subtle: rgba(191, 90, 242, 0.12);
+  --border-active: rgba(191, 90, 242, 0.40);
+
+  --shadow-card:             0 2px 14px rgba(0, 0, 0, 0.60);
+  --shadow-paper:            0 6px 24px rgba(0, 0, 0, 0.65);
+  --shadow-input-container:  0 -1px 0 rgba(191, 90, 242, 0.08);
+
+  --radius-card:   14px;
+  --radius-button: 10px;
+  --radius-pill:   100px;
+  --radius-input:  10px;
+
+  --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  --font-code: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --background:           #09090F;
+  --foreground:           #E8E8F0;
+  --card:                 #111118;
+  --card-foreground:      #E8E8F0;
+  --popover:              #18181F;
+  --popover-foreground:   #E8E8F0;
+  --primary:              #BF5AF2;
+  --primary-foreground:   #FFFFFF;
+  --secondary:            #18181F;
+  --secondary-foreground: #8E8EA8;
+  --muted:                #18181F;
+  --muted-foreground:     #56566A;
+  --accent:               rgba(191, 90, 242, 0.15);
+  --accent-foreground:    #BF5AF2;
+  --border:               rgba(191, 90, 242, 0.12);
+  --input:                #1E1E28;
+  --ring:                 #BF5AF2;
 }
 
-/* Muted Charcoal Theme [data-theme="charcoal"] */
-[data-theme="charcoal"] {
-  --bg-page: #D3DAD9;
-  --bg-panel: #ffffff;
-  --bg-paper: #ffffff;
-  --bg-elevated: #D3DAD9;
-  --bg-navbar: #37353E;
-  
-  --accent-primary: #37353E;
-  --accent-primary-hover: #44444E;
-  --accent-light: #D3DAD9;
-  
-  --text-dark: #37353E;
-  --text-secondary: #44444E;
-  --text-muted: #715A5A;
-  
-  --border-subtle: #715A5A;
-  --border-active: #37353E;
-  
-  --shadow-card: 0 4px 20px rgba(55, 53, 62, 0.08);
-  --shadow-hover: 0 8px 25px rgba(55, 53, 62, 0.15);
-  --shadow-paper: 0 10px 30px rgba(55, 53, 62, 0.1);
-  --shadow-input-container: 0 -4px 16px rgba(55, 53, 62, 0.06);
+/* --------------------------------------------------------------------------
+   THEME 5 — Apple Teal / Frosted Glass (iOS Control Center blur aesthetic)
+   -------------------------------------------------------------------------- */
+[data-theme="5"],
+html[data-theme="5"],
+body.theme-5 {
+  --bg-page:        #E8F4F4;
+  --bg-panel:       rgba(255, 255, 255, 0.75);
+  --bg-elevated:    rgba(255, 255, 255, 0.85);
+  --bg-navbar:      rgba(232, 244, 244, 0.78);
+  --bg-paper:       rgba(255, 255, 255, 0.70);
+  --bg-input:       rgba(255, 255, 255, 0.55);
+
+  --text-dark:      #003838;
+  --text-secondary: #3D6B6B;
+  --text-muted:     #7DA8A8;
+
+  --accent-primary:       #00897B;
+  --accent-primary-hover: #00695C;
+  --accent-light:         rgba(0, 137, 123, 0.12);
+
+  --border-subtle: rgba(0, 100, 90, 0.13);
+  --border-active: rgba(0, 137, 123, 0.40);
+
+  --shadow-card:             0 4px 20px rgba(0, 60, 60, 0.10), 0 0 1px rgba(0, 80, 80, 0.08);
+  --shadow-paper:            0 8px 30px rgba(0, 60, 60, 0.10);
+  --shadow-input-container:  0 -1px 0 rgba(0, 80, 80, 0.06);
+
+  --radius-card:   18px;
+  --radius-button: 12px;
+  --radius-pill:   100px;
+  --radius-input:  12px;
+
+  --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+  --font-code: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --background:           #E8F4F4;
+  --foreground:           #003838;
+  --card:                 rgba(255, 255, 255, 0.80);
+  --card-foreground:      #003838;
+  --popover:              rgba(255, 255, 255, 0.95);
+  --popover-foreground:   #003838;
+  --primary:              #00897B;
+  --primary-foreground:   #FFFFFF;
+  --secondary:            rgba(0, 137, 123, 0.08);
+  --secondary-foreground: #003838;
+  --muted:                rgba(0, 137, 123, 0.08);
+  --muted-foreground:     #7DA8A8;
+  --accent:               rgba(0, 137, 123, 0.12);
+  --accent-foreground:    #00897B;
+  --border:               rgba(0, 100, 90, 0.13);
+  --input:                rgba(255, 255, 255, 0.55);
+  --ring:                 #00897B;
 }
 
-* {
+/* ==========================================================================
+   GLOBAL RESET & BASE
+   ========================================================================== */
+
+*, *::before, *::after {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
 }
 
 html, body {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-main);
   background-color: var(--bg-page);
   color: var(--text-dark);
-  font-family: var(--font-main);
-  -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 0.3s ease,
+    color 0.2s ease;
 }
 
-/* Minimalist Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ==========================================================================
+   THEME BODY BACKGROUND APPLICATION
+   Each theme body class reinforces the background so it renders on the
+   entire page including areas outside React's root div.
+   ========================================================================== */
+
+body.theme-1 { background: #F5F5F7; color: #1D1D1F; }
+body.theme-2 { background: #000000; color: #F5F5F7; }
+body.theme-3 { background: #F2EDE5; color: #2B2118; }
+body.theme-4 { background: #09090F; color: #E8E8F0; }
+body.theme-5 { background: #E8F4F4; color: #003838; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--border-subtle);
   border-radius: 10px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-primary);
-}
+::-webkit-scrollbar-thumb:hover { background: var(--accent-primary); }
 
-.main-viewport {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-page);
-}
+/* ==========================================================================
+   HEADER — Frosted glass navbar (macOS menu bar aesthetic)
+   ========================================================================== */
 
-/* Full Width Top Navigation Bar */
-.top-navbar {
-  width: 100vw;
-  height: 56px;
-  background: var(--bg-navbar);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  border-bottom: 1px solid var(--border-subtle);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-  transition: background-color 0.3s ease;
-}
-
-.nav-brand {
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #ffffff;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-}
-
-.nav-link {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-}
-
-.nav-link:hover, .nav-link.active {
-  color: #ffffff;
-}
-
-/* Theme Selector Dropdown */
-.theme-selector {
-  background: rgba(0, 0, 0, 0.25);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 6px;
-  outline: none;
-  cursor: pointer;
-}
-
-.theme-selector option {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.nav-cta-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 8px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.nav-cta-btn:hover {
-  background: #ffffff;
-  color: var(--accent-primary);
-}
-
-/* 80% Centered Container with Inset Floating Panes */
-.app-container {
-  flex: 1;
-  display: flex;
-  width: 100vw;
-  height: calc(100vh - 56px);
-  justify-content: center;
-  padding: 1.5rem 0;
-  background: var(--bg-page);
-}
-
-.app-wrapper {
-  width: 80%;
-  height: 100%;
-  display: flex;
-  gap: 1.5rem;
-}
-
-/* 40% Left Panel */
-.left-panel {
-  width: 40%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-panel);
-  border-radius: 16px;
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-
-/* 60% Right Panel */
-.right-panel {
-  width: 60%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-elevated);
-  border-radius: 16px;
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-  position: relative;
-}
-
-/* Panel Header Alignment & Dynamic Primary Color Text */
-.panel-header {
+.townwatch-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   height: 54px;
-  padding: 0 1.5rem;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 1.25rem;
+  gap: 0.75rem;
+  background: var(--bg-navbar);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--border-subtle);
+  box-shadow: 0 1px 0 var(--border-subtle);
+  font-family: var(--font-main);
+}
+
+/* ==========================================================================
+   WORKSPACE LAYOUT
+   ========================================================================== */
+
+.townwatch-workspace {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg-page);
+  font-family: var(--font-main);
+}
+
+.townwatch-layout-container {
+  height: calc(100vh - 54px);
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   PANEL & CARD SURFACES
+   ========================================================================== */
+
+.chat-panel-surface {
+  background: var(--bg-panel);
+  border-right: 0.5px solid var(--border-subtle);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer-panel-surface {
+  background: var(--bg-elevated);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* bg-card utility override for custom vars */
+.bg-card {
+  background-color: var(--bg-panel) !important;
+}
+.bg-background {
+  background-color: var(--bg-page) !important;
+}
+.bg-muted {
+  background-color: var(--bg-input) !important;
+}
+.text-foreground {
+  color: var(--text-dark) !important;
+}
+.text-muted-foreground {
+  color: var(--text-muted) !important;
+}
+.border-border {
+  border-color: var(--border-subtle) !important;
+}
+.text-primary {
+  color: var(--accent-primary) !important;
+}
+.bg-primary {
+  background-color: var(--accent-primary) !important;
+}
+.text-primary-foreground {
+  color: #FFFFFF !important;
+}
+.bg-primary\/10 {
+  background-color: var(--accent-light) !important;
+}
+
+/* ==========================================================================
+   HEADER INTERACTIVE CONTROLS
+   ========================================================================== */
+
+/* Mode toggle pill group */
+.mode-pill-group {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 0.5px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  gap: 2px;
+}
+
+.mode-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: var(--font-main);
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.mode-pill.active {
+  background: var(--bg-elevated);
+  color: var(--accent-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+
+/* Theme switcher pills */
+.theme-pill-group {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 0.5px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  gap: 1px;
+}
+
+.theme-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: var(--font-main);
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.theme-pill.active {
+  background: var(--accent-primary);
+  color: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.20);
+}
+
+.theme-pill:not(.active):hover {
+  color: var(--text-dark);
+  background: var(--bg-elevated);
+}
+
+/* Tab group (PDF / Zoning) */
+.tab-pill-group {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 0.5px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  gap: 2px;
+}
+
+.tab-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: var(--font-main);
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.tab-pill.active {
   background: var(--bg-elevated);
   color: var(--text-dark);
-}
-
-.panel-header-title-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  line-height: 1;
-}
-
-.panel-header-title {
   font-weight: 600;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  color: var(--text-dark);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
 }
 
-.badge-tag {
-  font-size: 0.7rem;
-  padding: 3px 8px;
-  border-radius: 20px;
-  background: var(--bg-page);
-  color: var(--accent-primary);
-  border: 1px solid var(--border-active);
-  font-family: var(--font-code);
-  font-weight: 700;
-  text-transform: uppercase;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-}
+/* ==========================================================================
+   CHAT FEED
+   ========================================================================== */
 
-.filename-meta {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  font-family: var(--font-code);
-}
-
-/* Chat Feed */
 .chat-feed {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 1.25rem 1rem;
   display: flex;
   flex-direction: column;
+  gap: 0;
+  background: var(--bg-panel);
 }
 
 .chat-turn-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 1.5rem;
+  gap: 4px;
+  margin-bottom: 1.25rem;
 }
 
-.chat-turn-group:last-child {
-  margin-bottom: 0;
+.chat-turn-group:last-child { margin-bottom: 0; }
+
+@keyframes softSlideUp {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.98); }
+  70%  { opacity: 0.9; transform: translateY(-1px) scale(1.002); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .message-card {
-  max-width: 92%;
-  padding: 1rem 1.35rem;
-  border-radius: 14px;
+  max-width: 88%;
+  padding: 0.875rem 1.125rem;
   line-height: 1.6;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   font-family: var(--font-main);
-  white-space: pre-wrap;
   word-break: break-word;
-}
-
-
-/* Soft Send Micro-Animations */
-@keyframes softSlideUp {
-  0% {
-    opacity: 0;
-    transform: translateY(12px) scale(0.97);
-  }
-  60% {
-    opacity: 0.85;
-    transform: translateY(-2px) scale(1.005);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes pulseTyping {
-  0%, 100% {
-    opacity: 0.4;
-    transform: scale(0.95);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
+  animation: softSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .message-user {
   align-self: flex-end;
   background: var(--accent-primary);
-  color: #ffffff;
-  border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: softSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  color: #FFFFFF;
+  border-radius: 18px;
+  border-bottom-right-radius: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .message-assistant {
   align-self: flex-start;
   background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border: 0.5px solid var(--border-subtle);
   color: var(--text-dark);
-  border-bottom-left-radius: 4px;
+  border-radius: 18px;
+  border-bottom-left-radius: 5px;
   box-shadow: var(--shadow-card);
-  animation: softSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Typing Indicator Dots */
+/* Typing indicator */
+@keyframes pulseTyping {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50%       { opacity: 1;    transform: scale(1.1); }
+}
+
 .typing-indicator {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 8px 4px;
+  padding: 6px 4px;
 }
 
 .typing-dot {
@@ -465,62 +637,107 @@ html, body {
   background: var(--accent-primary);
   animation: pulseTyping 1.2s infinite ease-in-out;
 }
+.typing-dot:nth-child(2) { animation-delay: 0.18s; }
+.typing-dot:nth-child(3) { animation-delay: 0.36s; }
 
-.typing-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* Citation Badges */
+/* Citation badges */
 .citation-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin-top: 8px;
-  padding: 4px 10px;
-  font-size: 0.75rem;
+  padding: 3px 9px;
+  font-size: 0.73rem;
   font-family: var(--font-code);
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--accent-light);
   color: var(--accent-primary);
-  border: 1px solid var(--border-subtle);
+  border: 0.5px solid var(--border-active);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
-
 .citation-badge:hover {
   background: var(--accent-primary);
-  color: #ffffff;
+  color: #FFFFFF;
 }
 
-/* Input Area Visual Weight Anchoring */
+/* Interactive Markdown Citations & Links */
+.markdown-citation-interactive {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--accent-light);
+  color: var(--accent-primary);
+  border: 0.5px solid var(--border-active);
+  border-radius: 6px;
+  padding: 1px 7px;
+  font-family: var(--font-code);
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  vertical-align: middle;
+  line-height: 1.4;
+  margin: 0 2px;
+  text-decoration: none;
+}
+.markdown-citation-interactive:hover {
+  background: var(--accent-primary);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.28);
+}
+.markdown-citation-interactive:active {
+  transform: translateY(0) scale(0.98);
+}
+.markdown-citation-tag {
+  display: inline-block;
+  font-family: var(--font-code);
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--accent-primary);
+  background: var(--accent-light);
+  padding: 1px 6px;
+  border-radius: 5px;
+  margin: 0 2px;
+}
+.markdown-link {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.markdown-link:hover {
+  color: var(--accent-primary-hover);
+}
+
+/* ==========================================================================
+   INPUT AREA
+   ========================================================================== */
+
 .input-area {
-  padding: 1.25rem 1.5rem;
-  border-top: 2px solid var(--border-subtle);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-input-container);
-  z-index: 10;
+  padding: 0.875rem 1rem;
+  border-top: 0.5px solid var(--border-subtle);
+  background: var(--bg-panel);
 }
 
 .input-box {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-active);
-  border-radius: 12px;
-  padding: 8px 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
+  gap: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-input);
+  padding: 8px 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input-box:focus-within {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .input-field {
@@ -529,37 +746,36 @@ html, body {
   border: none;
   outline: none;
   color: var(--text-dark);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-family: var(--font-main);
 }
+
+.input-field::placeholder { color: var(--text-muted); }
 
 .send-btn {
   background: var(--accent-primary);
   border: none;
-  color: #ffffff;
+  color: #FFFFFF;
   font-weight: 600;
-  font-size: 0.85rem;
-  padding: 8px 18px;
-  border-radius: 8px;
+  font-size: 0.82rem;
+  padding: 7px 16px;
+  border-radius: var(--radius-button);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: var(--font-main);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.send-btn:hover  { background: var(--accent-primary-hover); }
+.send-btn:active { transform: scale(0.97); }
 
-.send-btn:hover {
-  background: var(--accent-primary-hover);
-  transform: translateY(-1px);
-}
+/* ==========================================================================
+   PDF VIEWER
+   ========================================================================== */
 
-.send-btn:active {
-  transform: translateY(1px) scale(0.98);
-}
-
-/* PDF Canvas Container & Interactive Viewer */
 .pdf-viewer-scroll-container {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 1.25rem;
   background: var(--bg-elevated);
   display: flex;
   flex-direction: column;
@@ -569,21 +785,19 @@ html, body {
 .pdf-viewer-status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 2rem;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-family: var(--font-code);
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
-.pdf-viewer-error {
-  color: #ef4444;
-}
+.pdf-viewer-error { color: #FF3B30; }
 
 .pdf-pages-stack {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
   width: 100%;
   max-width: 750px;
   align-items: center;
@@ -592,24 +806,24 @@ html, body {
 .pdf-page-card {
   width: 100%;
   background: var(--bg-paper);
-  border-radius: 12px;
-  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  border: 0.5px solid var(--border-subtle);
   box-shadow: var(--shadow-paper);
-  padding: 1rem;
+  padding: 0.875rem;
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: border-color 0.3s ease;
+  transition: border-color 0.2s ease;
 }
 
 .pdf-page-header {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-family: var(--font-code);
   font-weight: 600;
   color: var(--text-muted);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.6rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 0.5px solid var(--border-subtle);
   display: flex;
   justify-content: space-between;
 }
@@ -623,58 +837,213 @@ html, body {
 
 .pdf-canvas-wrapper canvas {
   display: block;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
   border-radius: 4px;
 }
 
-/* Translucent Citation Overlay Highlight Box */
-@keyframes highlightPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4);
-    background-color: rgba(254, 240, 138, 0.35);
+/* PDF Highlight */
+@keyframes markerGlow {
+  0%, 100% {
+    background-color: rgba(254, 240, 138, 0.45);
+    box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.3);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(234, 179, 8, 0.15);
-    background-color: rgba(254, 240, 138, 0.55);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4);
-    background-color: rgba(254, 240, 138, 0.35);
+    background-color: rgba(253, 224, 71, 0.65);
+    box-shadow: 0 0 8px 2px rgba(250, 204, 21, 0.4);
   }
 }
 
 .pdf-highlight-overlay {
-  border: 1.5px solid #eab308;
-  border-radius: 4px;
-  animation: highlightPulse 2.5s infinite ease-in-out;
+  border-radius: 5px;
+  mix-blend-mode: multiply;
+  animation: markerGlow 3s infinite ease-in-out;
   pointer-events: none;
   z-index: 10;
   position: absolute;
-  overflow: visible;
+  transition: all 0.2s ease-out;
 }
 
 .pdf-highlight-tag {
   position: absolute;
   top: -24px;
-  left: 0;
+  left: 4px;
   font-size: 0.68rem;
   font-family: var(--font-code);
   font-weight: 700;
-  color: #ffffff;
-  background: var(--accent-primary);
-  padding: 3px 8px;
-  border-radius: 4px;
+  color: #1C1C1E;
+  background: #FEF08A;
+  border: 1px solid #CA8A04;
+  padding: 2px 7px;
+  border-radius: 5px;
   line-height: 1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.10);
   white-space: nowrap;
 }
 
-/* Highlight Box */
-.highlight-box {
-  background: var(--bg-elevated);
-  border-left: 4px solid var(--accent-primary);
-  border-radius: 6px;
-  padding: 12px 16px;
-  margin: 14px 0;
+/* ==========================================================================
+   MARKDOWN CONTENT TYPOGRAPHY
+   ========================================================================== */
+
+.markdown-content {
+  font-size: 0.91rem;
+  line-height: 1.65;
+  color: var(--text-dark);
+  word-break: break-word;
+  font-family: var(--font-main);
 }
 
+.markdown-content .markdown-p { margin-bottom: 0.8rem; }
+.markdown-content .markdown-p:last-child { margin-bottom: 0; }
+
+.markdown-content .markdown-heading {
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-top: 1rem;
+  margin-bottom: 0.45rem;
+  line-height: 1.3;
+}
+.markdown-content .markdown-heading:first-child { margin-top: 0; }
+
+.markdown-content .markdown-h1 { font-size: 1.2rem; border-bottom: 0.5px solid var(--border-subtle); padding-bottom: 0.3rem; }
+.markdown-content .markdown-h2 { font-size: 1.08rem; }
+.markdown-content .markdown-h3 { font-size: 0.98rem; }
+.markdown-content .markdown-h4 { font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+
+.markdown-content .markdown-ul,
+.markdown-content .markdown-ol {
+  margin: 0.35rem 0 0.8rem;
+  padding-left: 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.markdown-content .markdown-ul li { list-style-type: disc; }
+.markdown-content .markdown-ol li { list-style-type: decimal; }
+
+.markdown-content .markdown-bold  { font-weight: 700; color: var(--text-dark); }
+.markdown-content .markdown-italic { font-style: italic; }
+
+.markdown-content .markdown-inline-code {
+  font-family: var(--font-code);
+  font-size: 0.83em;
+  background: var(--bg-input);
+  border: 0.5px solid var(--border-subtle);
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: var(--accent-primary);
+}
+
+.markdown-content .markdown-code-block {
+  font-family: var(--font-code);
+  font-size: 0.82em;
+  background: #1C1C1E;
+  color: #F5F5F7;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 0.65rem 0;
+  line-height: 1.5;
+}
+
+.markdown-content .markdown-blockquote {
+  border-left: 3px solid var(--accent-primary);
+  background: var(--accent-light);
+  padding: 0.5rem 1rem;
+  margin: 0.65rem 0;
+  border-radius: 0 8px 8px 0;
+  color: var(--text-secondary);
+}
+
+.markdown-content .markdown-hr {
+  border: none;
+  border-top: 0.5px solid var(--border-subtle);
+  margin: 0.9rem 0;
+}
+
+.markdown-content .markdown-citation-tag {
+  font-family: var(--font-code);
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--accent-primary);
+  background: var(--accent-light);
+  padding: 1px 5px;
+  border-radius: 4px;
+  display: inline-block;
+  margin: 0 2px;
+}
+
+/* highlight-box (blockquote callout) */
+.highlight-box {
+  background: var(--bg-elevated);
+  border-left: 3px solid var(--accent-primary);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+/* ==========================================================================
+   THEME 5 — Glassmorphism card override
+   ========================================================================== */
+
+[data-theme="5"] .message-assistant,
+[data-theme="5"] .pdf-page-card,
+[data-theme="5"] .input-box {
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+}
+
+/* ==========================================================================
+   LAYOUT PRESETS (Swappable with keys 1-5)
+   These control PANE GEOMETRY only. Visual theming is done above.
+   ========================================================================== */
+
+/* Layout 1: Balanced Split (50/50) */
+.layout-preset-1 {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .layout-preset-1 { grid-template-columns: 1fr 1fr; }
+}
+
+/* Layout 2: Deep Reader (30/70) */
+.layout-preset-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .layout-preset-2 { grid-template-columns: 3fr 7fr; }
+}
+
+/* Layout 3: Chat Priority (70/30) */
+.layout-preset-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .layout-preset-3 { grid-template-columns: 7fr 3fr; }
+}
+
+/* Layout 4: Vertical Stack */
+.layout-preset-4 {
+  display: flex;
+  flex-direction: column;
+}
+.layout-preset-4 > section {
+  height: 50%;
+  width: 100%;
+}
+
+/* Layout 5: Zen Focus */
+.layout-preset-5 {
+  display: block;
+  position: relative;
+}
+.layout-preset-5 > section.zen-active {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+.layout-preset-5 > section.zen-hidden {
+  display: none;
+}

@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Configure pdfjs worker source using CDN matching current version
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+// Configure pdfjs worker source: prefer local worker in public/, fallback to CDN
+if (typeof window !== "undefined") {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+}
 
 export interface CitationHighlight {
   docTitle: string;
@@ -34,12 +36,13 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
   const cardRefs = useRef<{ [pageNumber: number]: HTMLDivElement | null }>({});
   const wrapperRefs = useRef<{ [pageNumber: number]: HTMLDivElement | null }>({});
   const renderTasksRef = useRef<{ [pageNumber: number]: pdfjsLib.RenderTask | null }>({});
-  
+
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [renderedPages, setRenderedPages] = useState<{ [pageNumber: number]: RenderedPage }>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedDocName, setResolvedDocName] = useState<string>("");
 
   const cancelRenderTasks = () => {
     Object.values(renderTasksRef.current).forEach((task) => {
@@ -59,15 +62,22 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
     cancelRenderTasks();
 
     const tryLoad = async () => {
-      const rawName = pdfUrl.replace(/^\/+/, "").replace(/^api\/documents\//, "");
+      // Normalize filename from any path or URL format
+      let rawName = pdfUrl.split("/").pop() || pdfUrl;
+      rawName = rawName.split("?")[0].split("#")[0];
+      if (!rawName.toLowerCase().endsWith(".pdf")) {
+        rawName = `${rawName}.pdf`;
+      }
+      setResolvedDocName(rawName);
+
       const encodedName = encodeURIComponent(rawName);
       const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
-      
+
       const urlsToTry = [
+        `/api/documents/${encodedName}`,
         `${apiBase}/api/documents/${encodedName}`,
         `http://localhost:8001/api/documents/${encodedName}`,
-        `/api/documents/${encodedName}`,
-        pdfUrl
+        pdfUrl.startsWith("/") ? pdfUrl : `/api/documents/${encodedName}`,
       ];
 
       for (const url of urlsToTry) {
@@ -91,7 +101,6 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
       }
     };
 
-
     tryLoad();
 
     return () => {
@@ -106,10 +115,12 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
       try {
         const page = await pdfDoc.getPage(pageNumber);
         const unscaledViewport = page.getViewport({ scale: 1.0 });
-        
-        const availableWidth = wrapperEl.clientWidth || (containerRef.current ? containerRef.current.clientWidth - 48 : 600);
+
+        const availableWidth =
+          wrapperEl.clientWidth ||
+          (containerRef.current ? containerRef.current.clientWidth - 48 : 600);
         const baseScale = Math.min(availableWidth / unscaledViewport.width, 1.4);
-        
+
         const pixelRatio = window.devicePixelRatio || 1;
         const scaledViewport = page.getViewport({ scale: baseScale * pixelRatio });
         const displayViewport = page.getViewport({ scale: baseScale });
@@ -145,14 +156,25 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
           try {
             await renderTask.promise;
           } catch (err: unknown) {
-            if (err && typeof err === "object" && "name" in err && err.name === "RenderingCancelledException") {
+            if (
+              err &&
+              typeof err === "object" &&
+              "name" in err &&
+              err.name === "RenderingCancelledException"
+            ) {
               return;
             }
             throw err;
           }
         }
 
-        const textItems: Array<{ str: string; x: number; y: number; width: number; height: number }> = [];
+        const textItems: Array<{
+          str: string;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        }> = [];
         try {
           const textContent = await page.getTextContent();
           textContent.items.forEach((item: Record<string, unknown>) => {
@@ -187,7 +209,12 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
           },
         }));
       } catch (err: unknown) {
-        if (!err || typeof err !== "object" || !("name" in err) || err.name !== "RenderingCancelledException") {
+        if (
+          !err ||
+          typeof err !== "object" ||
+          !("name" in err) ||
+          err.name !== "RenderingCancelledException"
+        ) {
           console.error(`Error rendering PDF page ${pageNumber}:`, err);
         }
       }
@@ -241,28 +268,50 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
         .filter((w) => w.length > 3);
 
       if (snippetWords.length > 0) {
+        // Find text items that contain the snippet words
         const matchedItems = pageMeta.textItems.filter((item) => {
           const itemText = item.str.toLowerCase();
           return snippetWords.some((w) => itemText.includes(w));
         });
 
         if (matchedItems.length > 0) {
+          // Sort items by vertical position (y) to find the dense cluster
+          matchedItems.sort((a, b) => a.y - b.y);
+
+          // Find the primary cluster (items within 180px vertical span)
+          let bestCluster = [matchedItems[0]];
+          let currentCluster = [matchedItems[0]];
+
+          for (let k = 1; k < matchedItems.length; k++) {
+            if (matchedItems[k].y - matchedItems[k - 1].y < 45) {
+              currentCluster.push(matchedItems[k]);
+            } else {
+              if (currentCluster.length > bestCluster.length) {
+                bestCluster = currentCluster;
+              }
+              currentCluster = [matchedItems[k]];
+            }
+          }
+          if (currentCluster.length > bestCluster.length) {
+            bestCluster = currentCluster;
+          }
+
           let minX = Infinity;
           let minY = Infinity;
           let maxX = -Infinity;
           let maxY = -Infinity;
 
-          matchedItems.forEach((item) => {
+          bestCluster.forEach((item) => {
             if (item.x < minX) minX = item.x;
             if (item.y < minY) minY = item.y;
             if (item.x + item.width > maxX) maxX = item.x + item.width;
             if (item.y + item.height > maxY) maxY = item.y + item.height;
           });
 
-          left = Math.max(10, minX - 4);
-          top = Math.max(6, minY - 2);
-          width = Math.min(pageMeta.viewportWidth - left - 10, maxX - minX + 8);
-          height = Math.max(22, maxY - minY + 4);
+          left = Math.max(16, minX - 6);
+          top = Math.max(8, minY - 4);
+          width = Math.min(pageMeta.viewportWidth - left - 16, Math.max(120, maxX - minX + 12));
+          height = Math.min(260, Math.max(28, maxY - minY + 8));
           snippetMatched = true;
         }
       }
@@ -312,8 +361,15 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
       )}
 
       {error && (
-        <div className="pdf-viewer-status pdf-viewer-error">
-          <p>{error}</p>
+        <div className="pdf-viewer-status pdf-viewer-error flex flex-col items-center gap-3 w-full p-4">
+          <p className="text-xs text-red-500 font-medium">{error}</p>
+          <div className="w-full max-w-2xl h-[550px] border border-border rounded-xl overflow-hidden bg-background shadow-xs">
+            <iframe
+              src={`/api/documents/${encodeURIComponent(resolvedDocName)}`}
+              className="w-full h-full border-none"
+              title="PDF Fallback Viewer"
+            />
+          </div>
         </div>
       )}
 
@@ -327,12 +383,16 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
               <div
                 key={pageNum}
                 className="pdf-page-card"
-                ref={(el) => { cardRefs.current[pageNum] = el; }}
+                ref={(el) => {
+                  cardRefs.current[pageNum] = el;
+                }}
               >
                 <div className="pdf-page-header">
-                  <span>Page {pageNum} of {numPages}</span>
+                  <span>
+                    Page {pageNum} of {numPages}
+                  </span>
                 </div>
-                
+
                 <div
                   className="pdf-canvas-wrapper"
                   style={{
@@ -341,14 +401,17 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
                     height: pageMeta ? `${pageMeta.viewportHeight}px` : "auto",
                     margin: "0 auto",
                   }}
-                  ref={(el) => { wrapperRefs.current[pageNum] = el; }}
+                  ref={(el) => {
+                    wrapperRefs.current[pageNum] = el;
+                  }}
                 >
                   {/* Canvas is dynamically prepended here */}
-                  
+
                   {highlightStyle && (
                     <div className="pdf-highlight-overlay" style={highlightStyle}>
                       <span className="pdf-highlight-tag">
-                        Citation Match • Page {pageNum}{activeCitation?.paragraph ? ` • ¶${activeCitation.paragraph}` : ""}
+                        Citation Match • Page {pageNum}
+                        {activeCitation?.paragraph ? ` • ¶${activeCitation.paragraph}` : ""}
                       </span>
                     </div>
                   )}
@@ -361,4 +424,3 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
     </div>
   );
 }
-

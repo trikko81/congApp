@@ -116,6 +116,7 @@ class LLMSynthesisService:
         prompt = (
             f"You are an expert governance assistant. Answer the user question based strictly on the retrieved context below in clean GitHub-flavored Markdown.\n"
             f"Ground your response using exact inline citations like [DocTitle, p. X, par. Y].\n"
+            f"CRITICAL STATUTORY RULE: Do not extract advice, requirements, or legal conclusions from repealed, deleted, or struck-through text in legislative documents. Base all findings strictly on enacted, current, or newly added statutory provisions.\n"
             f"Do not include any conversational filler, meta-commentary, introductory pleasantries, pre-added disclaimers, or repetitive preambles. Output only the direct structured answer with Markdown headings and bullet points.\n\n"
             f"USER QUERY: {query}\n\n"
             f"RETRIEVED CONTEXT:\n{context_str}\n\n"
@@ -175,7 +176,10 @@ class LLMSynthesisService:
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
-                return body["choices"][0]["message"]["content"].strip()
+                choices = body.get("choices", [])
+                if choices and "message" in choices[0] and "content" in choices[0]["message"]:
+                    return choices[0]["message"]["content"].strip()
+                raise ValueError("No valid choices in DeepSeek response.")
         except urllib.error.HTTPError as http_err:
             error_body = http_err.read().decode("utf-8", errors="ignore")
             print(f"DeepSeek API HTTP {http_err.code} Error: {error_body}")
@@ -194,7 +198,12 @@ class LLMSynthesisService:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-            return body["candidates"][0]["content"]["parts"][0]["text"].strip()
+            candidates = body.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts and "text" in parts[0]:
+                    return parts[0]["text"].strip()
+            raise ValueError("No valid candidate text returned by Gemini API.")
 
     def _call_openai(self, prompt: str) -> str:
         api_key = self.api_key or os.getenv("OPENAI_API_KEY")
@@ -213,7 +222,10 @@ class LLMSynthesisService:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-            return body["choices"][0]["message"]["content"].strip()
+            choices = body.get("choices", [])
+            if choices and "message" in choices[0] and "content" in choices[0]["message"]:
+                return choices[0]["message"]["content"].strip()
+            raise ValueError("No valid choices returned by OpenAI API.")
 
     def _call_claude(self, prompt: str) -> str:
         api_key = self.api_key or os.getenv("ANTHROPIC_API_KEY")
@@ -233,7 +245,10 @@ class LLMSynthesisService:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-            return body["content"][0]["text"].strip()
+            content_list = body.get("content", [])
+            if content_list and "text" in content_list[0]:
+                return content_list[0]["text"].strip()
+            raise ValueError("No valid text in Claude API response.")
 
     def _call_ollama(self, prompt: str) -> str:
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -249,7 +264,11 @@ class LLMSynthesisService:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-            return body.get("response", "").strip()
+            resp_text = body.get("response")
+            if resp_text is not None:
+                return resp_text.strip()
+            raise ValueError("No response text in Ollama output.")
+
 
     def _clean_snippet(self, text: str) -> str:
         cleaned = re.sub(

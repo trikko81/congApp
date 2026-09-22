@@ -67,3 +67,18 @@ def test_get_document_not_found():
         response = client.get("/api/documents/non_existent_file.pdf")
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
+
+def test_get_document_empty_or_invalid():
+    with TestClient(app) as client:
+        response = client.get("/api/documents/%20")
+        assert response.status_code in [400, 404]
+
+def test_upload_non_pdf_rejected():
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/ingest/upload",
+            files={"file": ("agenda.txt", b"plain text content", "text/plain")}
+        )
+        assert response.status_code == 400
+        assert "must be a pdf" in response.json()["detail"].lower()
+
