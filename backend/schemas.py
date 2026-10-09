@@ -123,3 +123,23 @@ class ChatResponse(BaseModel):
     citations: List[Dict[str, Any]] = Field(default_factory=list)
     parcels: List[Dict[str, Any]] = Field(default_factory=list)
     active_tab_suggestion: str = Field(default="pdf")
+
+
+class LocalImpactBill(BaseModel):
+    bill_id: str
+    title: str
+    chapter_id: str
+    approved_date: str
+    doc_title: str
+    page: int
+    source_url: str
+    excerpt: str
+
+
+class LocalImpactResponse(BaseModel):
+    location: str
+    dataset_as_of: Optional[str] = None
+    coverage_status: str = "unknown"
+    skipped_count: int = 0
+    match_scope: str
+    matches: List[LocalImpactBill] = Field(default_factory=list)

@@ -28,9 +28,11 @@ from backend.schemas import (
     FeedResponse,
     UploadResponse,
     ChatRequest,
-    ChatResponse
+    ChatResponse,
+    LocalImpactResponse
 )
 from backend.vector_store import VectorStoreManager
+from backend.local_impact import find_latest_local_bills
 from backend.llm_synthesis import LLMSynthesisService
 from backend.legislative_search import VirginiaLegislativeSearcher
 from backend.agenda_parser import AgendaParser
@@ -224,6 +226,21 @@ def root() -> Dict[str, Any]:
 def health_check() -> Dict[str, str]:
     return {"status": "ok"}
 
+
+@app.get("/api/impact/latest", response_model=LocalImpactResponse)
+def latest_local_impact(
+    location: str = Query(..., min_length=3, max_length=100, description="Virginia city or locality"),
+) -> LocalImpactResponse:
+    try:
+        return LocalImpactResponse(**find_latest_local_bills(location))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The Virginia enacted-laws handoff is not available to the backend.",
+        ) from exc
+
 def safe_int(val: Any, default: int = 0) -> int:
     if val is None:
         return default
@@ -296,6 +313,8 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
     query = request.query
     query_lower = query.lower()
     is_zoning = any(w in query_lower for w in ["zoning", "variance", "setback", "parcel", "elm", "land use", "subdivision"])
+    bill_match = re.search(r"\b(HB|SB)\s*[-#]?\s*(\d+)\b", query, re.IGNORECASE)
+    bill_filter = {"bill_id": f"{bill_match.group(1).upper()}{bill_match.group(2)}"} if bill_match else None
 
     vsm = vector_store_manager
     synthesis_svc = get_llm_synthesis_service()
@@ -305,7 +324,7 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
 
     if vsm:
         try:
-            results_data = vsm.search(query=query, limit=4)
+            results_data = vsm.search(query=query, limit=8, filter_dict=bill_filter)
             for item in results_data:
                 payload = item.get("payload", {})
                 meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
@@ -319,7 +338,10 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
                     "page": page,
                     "paragraph": paragraph,
                     "text_chunk": text_chunk,
-                    "snippet": text_chunk
+                    "snippet": text_chunk,
+                    "ordinance_id": payload.get("bill_id") or payload.get("ordinance_id"),
+                    "chapter_id": payload.get("chapter_id"),
+                    "source_url": payload.get("source_url")
                 })
         except Exception as e:
             print(f"Notice: Vector search in chat: {e}")
@@ -514,7 +536,10 @@ def search_documents(request: SearchRequest) -> SearchResponse:
 
     for item in results_data:
         payload = item.get("payload", {})
-        meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        meta = dict(payload.get("metadata")) if isinstance(payload.get("metadata"), dict) else {}
+        for key in ("bill_id", "chapter_id", "session_code", "source_url", "date", "state", "ordinance_id", "chunk_id"):
+            if payload.get(key) is not None:
+                meta.setdefault(key, payload[key])
         bbox = meta.get("bbox")
         text_chunk = payload.get("text_chunk", "")
         doc_title = payload.get("doc_title") or meta.get("source_path") or meta.get("doc_title") or "Document"
@@ -572,7 +597,9 @@ def get_document(name: str) -> FileResponse:
     decoded_name = urllib.parse.unquote(name).strip()
     clean_base = os.path.basename(decoded_name)
     clean_base = re.sub(r'^(?:documents\/|\/)', '', clean_base)
-    clean_base = clean_base.replace(".pdf", "").strip()
+    if clean_base.lower().endswith(".pdf"):
+        clean_base = clean_base[:-4]
+    clean_base = clean_base.strip()
     if not clean_base:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -580,7 +607,8 @@ def get_document(name: str) -> FileResponse:
         )
     safe_filename = re.sub(r'[^\w\-\.\s]', '_', clean_base) + ".pdf"
 
-    pdf_dir = Path("TEMPPDF").resolve()
+    project_root = Path(__file__).resolve().parent.parent
+    pdf_dir = (project_root / "TEMPPDF").resolve()
     pdf_dir.mkdir(parents=True, exist_ok=True)
     file_path = (pdf_dir / safe_filename).resolve()
 
@@ -590,6 +618,27 @@ def get_document(name: str) -> FileResponse:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid document path"
+        )
+
+    enacted_pdf_dir = Path(
+        os.getenv("VIRGINIA_ENACTED_PDF_DIR", str(project_root / "virginia_2026_handoff" / "pdfs"))
+    ).resolve()
+    enacted_file_path = (enacted_pdf_dir / safe_filename).resolve()
+    try:
+        enacted_file_path.relative_to(enacted_pdf_dir)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid document path"
+        )
+
+    # Prefer the source PDF from the enacted-laws handoff so a citation opens
+    # the real, paginated chapter document rather than a generated placeholder.
+    if enacted_file_path.is_file() and enacted_file_path.stat().st_size > 100:
+        return FileResponse(
+            path=enacted_file_path,
+            media_type="application/pdf",
+            filename=safe_filename
         )
 
     # If already cached and valid, return immediately

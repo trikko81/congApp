@@ -132,7 +132,12 @@ class VectorStoreManager:
 
             points = []
             for item in batch:
-                point_id = str(uuid.uuid4())
+                chunk_id = item.get("chunk_id")
+                point_id = (
+                    str(uuid.uuid5(uuid.NAMESPACE_URL, f"congapp:{chunk_id}"))
+                    if chunk_id
+                    else str(uuid.uuid4())
+                )
                 vector = item.get("vector")
                 payload = {k: v for k, v in item.items() if k != "vector"}
                 if "doc_title" in payload and "source_doc" not in payload:
@@ -227,4 +232,3 @@ if __name__ == "__main__":
     vec = vsm.embed_texts([test_text])
     print(f"Test vector dimension: {len(vec[0])}")
     print("Vector generation successful.")
-

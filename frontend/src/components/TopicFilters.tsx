@@ -26,7 +26,7 @@ export default function TopicFilters({
   counts = {},
 }: TopicFiltersProps) {
   return (
-    <div className="topic-filter-bar flex items-center gap-2 overflow-x-auto py-2.5 px-4 border-b border-border bg-card/60 backdrop-blur">
+    <div className="topic-filter-bar flex items-center gap-2.5 overflow-x-auto py-3 px-4 border-b border-border bg-card/70">
       {CATEGORIES.map(({ label, icon }) => {
         const isSelected = selectedCategory === label;
         const count = counts[label] ?? (label === "All" ? Object.values(counts).reduce((a, b) => a + b, 0) : 0);
@@ -35,9 +35,9 @@ export default function TopicFilters({
           <button
             key={label}
             onClick={() => onSelectCategory(label)}
-            className={`topic-pill inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
+            className={`topic-pill inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.8125rem] font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
               isSelected
-                ? "bg-primary text-primary-foreground shadow-sm scale-105 font-semibold"
+                ? "bg-primary text-primary-foreground shadow-sm font-semibold"
                 : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface LegislativeLawItem {
   bill_id: string;
@@ -9,6 +9,10 @@ interface LegislativeLawItem {
   enactment_year: number;
   summary: string;
   url: string;
+}
+
+interface LegislativeSearchResponse {
+  results: LegislativeLawItem[];
 }
 
 
@@ -31,12 +35,45 @@ export default function LegislativeSearchModal({
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<LegislativeLawItem[]>([]);
   const [statusMsg, setStatusMsg] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    );
+    focusable?.[0]?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key === "Tab" && focusable?.length) {
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const handleSearch = async () => {
     setLoading(true);
     setStatusMsg("");
+    setResults([]);
     try {
       const url = `${apiBaseUrl}/api/legislative/search?query=${encodeURIComponent(
         query
@@ -45,7 +82,7 @@ export default function LegislativeSearchModal({
       )}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data: LegislativeSearchResponse = await res.json();
       setResults(data.results || []);
       if ((data.results || []).length === 0) {
         setStatusMsg("No Virginia legislative laws found matching criteria.");
@@ -60,6 +97,10 @@ export default function LegislativeSearchModal({
 
   return (
     <div
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       style={{
         position: "fixed",
         top: 0,
@@ -73,9 +114,14 @@ export default function LegislativeSearchModal({
         alignItems: "center",
         justifyContent: "center",
         padding: "1rem",
+        overflowY: "auto",
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="legislative-search-title"
         style={{
           background: "#1e293b",
           border: "1px solid rgba(255, 255, 255, 0.15)",
@@ -85,6 +131,8 @@ export default function LegislativeSearchModal({
           color: "#f8fafc",
           boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
           overflow: "hidden",
+          maxHeight: "calc(100dvh - 2rem)",
+          overflowY: "auto",
         }}
       >
         <div
@@ -97,7 +145,7 @@ export default function LegislativeSearchModal({
           }}
         >
           <div>
-            <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>
+            <h2 id="legislative-search-title" style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>
               Virginia Legislative Law Finder (2016–2026)
             </h2>
             <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#94a3b8" }}>
@@ -105,7 +153,9 @@ export default function LegislativeSearchModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close legislative search"
             style={{
               background: "transparent",
               border: "none",
@@ -118,13 +168,20 @@ export default function LegislativeSearchModal({
           </button>
         </div>
 
-        <div style={{ padding: "1.5rem" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "10px", marginBottom: "1rem" }}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSearch();
+          }}
+          style={{ padding: "1rem" }}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "10px", marginBottom: "1rem" }}>
             <div>
-              <label style={{ display: "block", fontSize: "0.75rem", color: "#94a3b8", marginBottom: "4px" }}>
+              <label htmlFor="legislative-query" style={{ display: "block", fontSize: "0.75rem", color: "#94a3b8", marginBottom: "4px" }}>
                 Topic / Keyword
               </label>
               <input
+                id="legislative-query"
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -141,10 +198,11 @@ export default function LegislativeSearchModal({
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.75rem", color: "#94a3b8", marginBottom: "4px" }}>
+              <label htmlFor="legislative-state" style={{ display: "block", fontSize: "0.75rem", color: "#94a3b8", marginBottom: "4px" }}>
                 Jurisdiction
               </label>
               <select
+                id="legislative-state"
                 value={stateFilter}
                 onChange={(e) => setStateFilter(e.target.value)}
                 style={{
@@ -161,10 +219,11 @@ export default function LegislativeSearchModal({
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.75rem", color: "#94a3b8", marginBottom: "4px" }}>
+              <label htmlFor="legislative-years" style={{ display: "block", fontSize: "0.75rem", color: "#94a3b8", marginBottom: "4px" }}>
                 Session Year
               </label>
               <select
+                id="legislative-years"
                 value={yearRange}
                 onChange={(e) => setYearRange(e.target.value)}
                 style={{
@@ -194,7 +253,7 @@ export default function LegislativeSearchModal({
 
 
           <button
-            onClick={handleSearch}
+            type="submit"
             disabled={loading}
             style={{
               width: "100%",
@@ -212,7 +271,7 @@ export default function LegislativeSearchModal({
           </button>
 
           {statusMsg && (
-            <p style={{ color: "#cbd5e1", fontSize: "0.85rem", margin: "0 0 1rem 0" }}>{statusMsg}</p>
+            <p role="status" style={{ color: "#cbd5e1", fontSize: "0.85rem", margin: "0 0 1rem 0" }}>{statusMsg}</p>
           )}
 
           <div style={{ maxHeight: "240px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -251,6 +310,7 @@ export default function LegislativeSearchModal({
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => {
                       if (onLawSelect) onLawSelect(filename);
                       onClose();
@@ -273,7 +333,7 @@ export default function LegislativeSearchModal({
               );
             })}
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

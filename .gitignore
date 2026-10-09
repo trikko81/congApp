@@ -21,6 +21,8 @@ dist/
 build/
 TEMPPDF/
 qdrant_db/
+/virginia_2026_handoff/
+/virginia_2026_enacted_laws_handoff.zip
 *.lock
 *.meta.json
 *.storage

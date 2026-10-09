@@ -27,7 +27,6 @@ export default function MarkdownRenderer({
     const lines = content.split("\n");
     const elements: React.ReactNode[] = [];
     let inCodeBlock = false;
-    let codeBlockLang = "";
     let codeBlockLines: string[] = [];
     let currentList: { type: "ul" | "ol"; items: string[] } | null = null;
     let currentBlockquote: string[] = [];
@@ -72,12 +71,10 @@ export default function MarkdownRenderer({
           );
           inCodeBlock = false;
           codeBlockLines = [];
-          codeBlockLang = "";
         } else {
           flushList();
           flushBlockquote();
           inCodeBlock = true;
-          codeBlockLang = line.trim().slice(3).trim();
           codeBlockLines = [];
         }
         continue;

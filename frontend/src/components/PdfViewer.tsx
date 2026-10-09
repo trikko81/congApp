@@ -31,6 +31,17 @@ interface RenderedPage {
   textItems: Array<{ str: string; x: number; y: number; width: number; height: number }>;
 }
 
+interface HighlightBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+function normalizedWords(value: string): string[] {
+  return value.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
 export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<{ [pageNumber: number]: HTMLDivElement | null }>({});
@@ -42,7 +53,7 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
   const [renderedPages, setRenderedPages] = useState<{ [pageNumber: number]: RenderedPage }>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [resolvedDocName, setResolvedDocName] = useState<string>("");
+  const [retryCount, setRetryCount] = useState(0);
 
   const cancelRenderTasks = () => {
     Object.values(renderTasksRef.current).forEach((task) => {
@@ -55,10 +66,6 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
-    setError(null);
-    setRenderedPages({});
-
     cancelRenderTasks();
 
     const tryLoad = async () => {
@@ -68,8 +75,6 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
       if (!rawName.toLowerCase().endsWith(".pdf")) {
         rawName = `${rawName}.pdf`;
       }
-      setResolvedDocName(rawName);
-
       const encodedName = encodeURIComponent(rawName);
       const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001";
 
@@ -96,7 +101,7 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
       }
 
       if (isMounted) {
-        setError(`Failed to load PDF document (${rawName}).`);
+        setError(`Could not open “${rawName}”. Confirm the document is available on the backend and try again.`);
         setLoading(false);
       }
     };
@@ -107,7 +112,7 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
       isMounted = false;
       cancelRenderTasks();
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, retryCount]);
 
   const renderPage = useCallback(
     async (pageNumber: number, wrapperEl: HTMLDivElement) => {
@@ -177,12 +182,12 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
         }> = [];
         try {
           const textContent = await page.getTextContent();
-          textContent.items.forEach((item: Record<string, unknown>) => {
-            if ("str" in item && typeof item.str === "string" && item.str.trim()) {
-              const tx = item.transform as number[];
+          textContent.items.forEach((item) => {
+            if ("str" in item && typeof item.str === "string" && item.str.trim() && "transform" in item) {
+              const tx = item.transform;
               const [ptX, ptY] = displayViewport.convertToViewportPoint(tx[4], tx[5]);
-              const itemWidth = ((item.width as number) || 0) * baseScale;
-              const itemHeight = ((item.height as number) || 12) * baseScale;
+              const itemWidth = ("width" in item && typeof item.width === "number" ? item.width : 0) * baseScale;
+              const itemHeight = ("height" in item && typeof item.height === "number" ? item.height : 12) * baseScale;
               textItems.push({
                 str: item.str,
                 x: ptX,
@@ -247,104 +252,82 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
     }
   }, [activeCitation]);
 
-  // Calculate overlay highlight style if citation active
-  const getHighlightStyle = (pageNumber: number) => {
-    if (!activeCitation || activeCitation.page !== pageNumber) return null;
+  // Only highlight a passage when its complete normalized phrase is present.
+  // Matching arbitrary individual words made unrelated paragraphs look cited.
+  const getHighlightBoxes = (pageNumber: number): HighlightBox[] => {
+    if (!activeCitation || activeCitation.page !== pageNumber) return [];
     const pageMeta = renderedPages[pageNumber];
-    if (!pageMeta) return null;
+    if (!pageMeta) return [];
 
-    let left = 20;
-    let top = 100;
-    let width = pageMeta.viewportWidth - 40;
-    let height = 40;
-
-    // Option A: Dynamic Snippet Text BBox Search (Most accurate)
-    let snippetMatched = false;
-    if (activeCitation.snippet && pageMeta.textItems.length > 0) {
-      const snippetWords = activeCitation.snippet
-        .toLowerCase()
-        .replace(/[^\w\s]/g, "")
-        .split(/\s+/)
-        .filter((w) => w.length > 3);
-
-      if (snippetWords.length > 0) {
-        // Find text items that contain the snippet words
-        const matchedItems = pageMeta.textItems.filter((item) => {
-          const itemText = item.str.toLowerCase();
-          return snippetWords.some((w) => itemText.includes(w));
-        });
-
-        if (matchedItems.length > 0) {
-          // Sort items by vertical position (y) to find the dense cluster
-          matchedItems.sort((a, b) => a.y - b.y);
-
-          // Find the primary cluster (items within 180px vertical span)
-          let bestCluster = [matchedItems[0]];
-          let currentCluster = [matchedItems[0]];
-
-          for (let k = 1; k < matchedItems.length; k++) {
-            if (matchedItems[k].y - matchedItems[k - 1].y < 45) {
-              currentCluster.push(matchedItems[k]);
-            } else {
-              if (currentCluster.length > bestCluster.length) {
-                bestCluster = currentCluster;
-              }
-              currentCluster = [matchedItems[k]];
-            }
-          }
-          if (currentCluster.length > bestCluster.length) {
-            bestCluster = currentCluster;
-          }
-
-          let minX = Infinity;
-          let minY = Infinity;
-          let maxX = -Infinity;
-          let maxY = -Infinity;
-
-          bestCluster.forEach((item) => {
-            if (item.x < minX) minX = item.x;
-            if (item.y < minY) minY = item.y;
-            if (item.x + item.width > maxX) maxX = item.x + item.width;
-            if (item.y + item.height > maxY) maxY = item.y + item.height;
-          });
-
-          left = Math.max(16, minX - 6);
-          top = Math.max(8, minY - 4);
-          width = Math.min(pageMeta.viewportWidth - left - 16, Math.max(120, maxX - minX + 12));
-          height = Math.min(260, Math.max(28, maxY - minY + 8));
-          snippetMatched = true;
-        }
-      }
-    }
-
-    // Option B: Explicit BBox passed from backend
-    if (!snippetMatched && activeCitation.bbox && activeCitation.bbox.length === 4) {
+    const wanted = normalizedWords(activeCitation.snippet ?? "");
+    // Prefer the actual quoted passage. A paragraph bbox can be broad and may
+    // highlight unrelated text when the quote is available but doesn't match.
+    if (!wanted.length && activeCitation.bbox && activeCitation.bbox.length === 4) {
       const [x0, y0, x1, y1] = activeCitation.bbox;
       if (x1 <= 1.0 && y1 <= 1.0) {
-        // Normalized [0..1]
-        left = x0 * pageMeta.viewportWidth;
-        top = y0 * pageMeta.viewportHeight;
-        width = (x1 - x0) * pageMeta.viewportWidth;
-        height = (y1 - y0) * pageMeta.viewportHeight;
-      } else {
-        // PDF point units (72 DPI)
-        left = (x0 / pageMeta.unscaledWidth) * pageMeta.viewportWidth;
-        top = (y0 / pageMeta.unscaledHeight) * pageMeta.viewportHeight;
-        width = ((x1 - x0) / pageMeta.unscaledWidth) * pageMeta.viewportWidth;
-        height = ((y1 - y0) / pageMeta.unscaledHeight) * pageMeta.viewportHeight;
+        return [{ left: x0 * pageMeta.viewportWidth, top: y0 * pageMeta.viewportHeight, width: (x1 - x0) * pageMeta.viewportWidth, height: (y1 - y0) * pageMeta.viewportHeight }];
       }
-    } else if (!snippetMatched && activeCitation.paragraph) {
-      top = Math.min(pageMeta.viewportHeight - 60, 80 + (activeCitation.paragraph - 1) * 70);
-      height = 50;
+      // PDF coordinates have a bottom-left origin; CSS coordinates have a top-left origin.
+      const left = (x0 / pageMeta.unscaledWidth) * pageMeta.viewportWidth;
+      const right = (x1 / pageMeta.unscaledWidth) * pageMeta.viewportWidth;
+      const top = ((pageMeta.unscaledHeight - y1) / pageMeta.unscaledHeight) * pageMeta.viewportHeight;
+      const bottom = ((pageMeta.unscaledHeight - y0) / pageMeta.unscaledHeight) * pageMeta.viewportHeight;
+      return [{ left, top, width: right - left, height: bottom - top }];
+    }
+    if (!wanted.length) return [];
+
+    const tokens = pageMeta.textItems.flatMap((item) =>
+      Array.from(item.str.matchAll(/[\p{L}\p{N}]+/gu), (match) => {
+        const start = match.index ?? 0;
+        const tokenWidth = (item.width * match[0].length) / Math.max(1, item.str.length);
+        return {
+          word: match[0].toLocaleLowerCase(),
+          box: {
+            left: item.x + (item.width * start) / Math.max(1, item.str.length),
+            top: item.y,
+            width: Math.max(2, tokenWidth),
+            height: item.height,
+          },
+        };
+      })
+    );
+
+    for (let start = 0; start <= tokens.length - wanted.length; start++) {
+      if (!wanted.every((word, offset) => tokens[start + offset].word === word)) continue;
+      const matchedTokens = tokens.slice(start, start + wanted.length);
+      const staysInReadingFlow = matchedTokens.slice(1).every((token, offset) => {
+        const previous = matchedTokens[offset].box;
+        const current = token.box;
+        const verticalGap = current.top - previous.top;
+        const sameLine = Math.abs(verticalGap) <= Math.max(3, previous.height * 0.55);
+        if (sameLine) {
+          const horizontalGap = current.left - (previous.left + previous.width);
+          return horizontalGap >= -8 && horizontalGap <= Math.max(40, previous.height * 7);
+        }
+        return verticalGap > 0 && verticalGap <= Math.max(16, previous.height * 2.5);
+      });
+      if (!staysInReadingFlow) continue;
+
+      const boxes = matchedTokens.map((token) => token.box);
+      // Merge neighboring words on the same text line. Keep separate boxes on
+      // wrapped lines so the highlight never paints over intervening content.
+      const lines: HighlightBox[] = [];
+      for (const box of boxes) {
+        const previous = lines[lines.length - 1];
+        if (previous && Math.abs(previous.top - box.top) < Math.max(4, box.height * 0.45) && box.left <= previous.left + previous.width + 8) {
+          const right = Math.max(previous.left + previous.width, box.left + box.width);
+          previous.left = Math.min(previous.left, box.left);
+          previous.width = right - previous.left;
+          previous.top = Math.min(previous.top, box.top);
+          previous.height = Math.max(previous.height, box.height);
+        } else {
+          lines.push({ ...box });
+        }
+      }
+      return lines;
     }
 
-    return {
-      position: "absolute" as const,
-      top: `${Math.max(0, Math.round(top))}px`,
-      left: `${Math.max(0, Math.round(left))}px`,
-      width: `${Math.max(40, Math.round(width))}px`,
-      height: `${Math.max(20, Math.round(height))}px`,
-    };
+    return [];
   };
 
   return (
@@ -361,22 +344,27 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
       )}
 
       {error && (
-        <div className="pdf-viewer-status pdf-viewer-error flex flex-col items-center gap-3 w-full p-4">
-          <p className="text-xs text-red-500 font-medium">{error}</p>
-          <div className="w-full max-w-2xl h-[550px] border border-border rounded-xl overflow-hidden bg-background shadow-xs">
-            <iframe
-              src={`/api/documents/${encodeURIComponent(resolvedDocName)}`}
-              className="w-full h-full border-none"
-              title="PDF Fallback Viewer"
-            />
-          </div>
+        <div className="pdf-viewer-status pdf-viewer-error flex flex-col items-center gap-3 w-full p-4" role="alert">
+          <p className="text-xs font-medium">{error}</p>
+          <button
+            type="button"
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              setRenderedPages({});
+              setRetryCount((count) => count + 1);
+            }}
+          >
+            Retry
+          </button>
         </div>
       )}
 
       {!loading && !error && (
         <div className="pdf-pages-stack">
           {Array.from({ length: numPages }, (_, idx) => idx + 1).map((pageNum) => {
-            const highlightStyle = getHighlightStyle(pageNum);
+            const highlightBoxes = getHighlightBoxes(pageNum);
             const pageMeta = renderedPages[pageNum];
 
             return (
@@ -407,14 +395,19 @@ export default function PdfViewer({ pdfUrl, activeCitation }: PdfViewerProps) {
                 >
                   {/* Canvas is dynamically prepended here */}
 
-                  {highlightStyle && (
-                    <div className="pdf-highlight-overlay" style={highlightStyle}>
-                      <span className="pdf-highlight-tag">
-                        Citation Match • Page {pageNum}
-                        {activeCitation?.paragraph ? ` • ¶${activeCitation.paragraph}` : ""}
-                      </span>
-                    </div>
-                  )}
+                  {highlightBoxes.map((box, index) => (
+                    <div
+                      key={`${pageNum}-${index}`}
+                      className="pdf-highlight-overlay"
+                      style={{
+                        top: `${Math.max(0, Math.round(box.top - 2))}px`,
+                        left: `${Math.max(0, Math.round(box.left - 2))}px`,
+                        width: `${Math.max(3, Math.round(box.width + 4))}px`,
+                        height: `${Math.max(3, Math.round(box.height + 4))}px`,
+                      }}
+                      aria-label={index === 0 ? `Citation text on page ${pageNum}` : undefined}
+                    />
+                  ))}
                 </div>
               </div>
             );

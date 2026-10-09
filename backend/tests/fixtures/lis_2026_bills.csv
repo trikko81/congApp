@@ -1,0 +1,8 @@
+Bill_id,Bill_description,Last_governor_action_date,Approved,Vetoed,Chapter_id
+HB10,"First enacted act; test.",1/1/2026,Y,N,CHAP0001
+SB20,"Last date act; test.",10/6/2026,Y,N,CHAP0042
+HB30,"Future act; test.",10/7/2026,Y,N,CHAP0043
+SB40,"Vetoed act; test.",5/1/2026,Y,Y,CHAP0044
+HJ50,"Constitutional resolution; excluded.",5/1/2026,Y,N,CHAP0045
+HB60,"Pending bill; excluded.",5/1/2026,N,N,
+HB10,"Duplicate row; test.",1/1/2026,Y,N,CHAP0001

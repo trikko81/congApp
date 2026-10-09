@@ -90,7 +90,10 @@ class LLMSynthesisService:
                 "page": page,
                 "paragraph": paragraph,
                 "citation_label": label,
-                "snippet": chunk.get("snippet") or chunk.get("text_chunk", "")
+                "snippet": chunk.get("snippet") or chunk.get("text_chunk", ""),
+                "ordinance_id": chunk.get("ordinance_id"),
+                "chapter_id": chunk.get("chapter_id"),
+                "source_url": chunk.get("source_url")
             })
         return citations
 

@@ -72,7 +72,6 @@ export default function ParcelMap({
         />
         <MapController center={activeCoords} />
         {markers.map((m, idx) => {
-          const isSelected = selectedItem?.id === m.item.id;
           return (
             <Marker
               key={idx}

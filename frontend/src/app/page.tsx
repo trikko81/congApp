@@ -4,13 +4,19 @@ import React, { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import ChatPanel, { ChatMessage, CitationItem } from "@/components/ChatPanel";
 import CivicFeedList from "@/components/CivicFeedList";
+import LocalImpactPanel from "@/components/LocalImpactPanel";
 import TopicFilters from "@/components/TopicFilters";
-import LegislativeSearchModal from "@/components/LegislativeSearchModal";
-import { CivicFeedItem, TopicCategory } from "@/types/civic";
+import {
+  ChatApiResponse,
+  CivicFeedItem,
+  FeedResponse,
+  TopicCategory,
+  UploadApiResponse,
+} from "@/types/civic";
 import {
   Landmark,
   FileText,
-  Map,
+  MapPin,
   Sparkles,
   ArrowLeftRight,
   Square,
@@ -18,12 +24,11 @@ import {
   Terminal,
   Palette,
   Newspaper,
-  Scale,
   MessageSquare,
 } from "lucide-react";
 
 
-// Dynamically load PDF Viewer and Zoning Map to avoid SSR hydration mismatches
+// Dynamically load the PDF viewer to avoid SSR hydration mismatches.
 const PdfViewer = dynamic(() => import("@/components/PdfViewer"), {
   ssr: false,
   loading: () => (
@@ -33,24 +38,11 @@ const PdfViewer = dynamic(() => import("@/components/PdfViewer"), {
   ),
 });
 
-const ZoningMapViewer = dynamic(() => import("@/components/ZoningMapViewer"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
-      Loading Zoning Boundary Map...
-    </div>
-  ),
-});
-
 async function fetchApi(endpoint: string, options?: RequestInit): Promise<Response> {
-  const primary = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
-  try {
-    const res = await fetch(`${primary}${endpoint}`, options);
-    if (res.ok) return res;
-  } catch (e) {
-    // fallback
-  }
-  return fetch(`http://localhost:8000${endpoint}`, options);
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  // Same-origin requests use the Next.js rewrite. Never retry a write against a
+  // second server because the first request may already have succeeded.
+  return fetch(`${baseUrl || ""}${endpoint}`, options);
 }
 
 export default function TownWatchApp() {
@@ -58,7 +50,6 @@ export default function TownWatchApp() {
   const [activeLayout, setActiveLayout] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [zenFocusedPane, setZenFocusedPane] = useState<"primary" | "secondary">("primary");
 
-  const [activeTab, setActiveTab] = useState<"pdf" | "zoning">("pdf");
   const [activeCitation, setActiveCitation] = useState<{
     docTitle: string;
     page: number;
@@ -68,35 +59,13 @@ export default function TownWatchApp() {
     page: 1,
   });
 
-  const [activeMarkerId, setActiveMarkerId] = useState<string | null>("p-1");
-  const [markers, setMarkers] = useState<any[]>([
-    {
-      id: "p-1",
-      address: "450 North Elm St",
-      parcelId: "Tax Map Parcel 104-55-A",
-      coords: [36.8609, -75.966],
-      ordinanceId: "ORD-2026-102",
-      page: 2,
-      details: "Approved rear setback reduction from 25ft to 15ft.",
-    },
-    {
-      id: "p-2",
-      address: "782 South Oak Street",
-      parcelId: "Parcel ID 88-12",
-      coords: [36.8649, -75.986],
-      ordinanceId: "RES-2026-78",
-      page: 6,
-      details: "Emergency radio repeater tower authorization.",
-    },
-  ]);
-
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
-  const [leftPanelMode, setLeftPanelMode] = useState<"chat" | "feed">("chat");
+  const [leftPanelMode, setLeftPanelMode] = useState<"chat" | "feed" | "impact">("chat");
   const [feedItems, setFeedItems] = useState<CivicFeedItem[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<TopicCategory>("All");
   const [topicCounts, setTopicCounts] = useState<Record<string, number>>({});
+  const [feedError, setFeedError] = useState<string | null>(null);
   const [selectedFeedItemId, setSelectedFeedItemId] = useState<string | undefined>();
-  const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -108,27 +77,26 @@ export default function TownWatchApp() {
           docTitle: "Virginia_Beach_City_Council_Agenda_2026.pdf",
           page: 1,
           ordinanceId: "RES-2026-44",
-          snippet: "Official Municipal Agenda and Consent Calendar for City Council regular session.",
+          snippet: "RESOLUTION NO. 2026-44: FISCAL YEAR 2026-2027 REAL PROPERTY TAX LEVY",
         },
         {
           docTitle: "Virginia_Beach_City_Council_Agenda_2026.pdf",
           page: 2,
           ordinanceId: "ORD-2026-102",
           snippet: "Ordinance 2026-102 approving setback reduction for Parcel 104-55-A.",
-          hasZoningMap: true,
         },
       ],
       timestamp: "12:00 PM",
     },
   ]);
 
-  const fetchFeed = useCallback(async (topic?: TopicCategory) => {
+  const fetchFeed = useCallback(async (topic?: TopicCategory, signal?: AbortSignal) => {
     try {
       const topicQuery = topic && topic !== "All" ? `?topic=${encodeURIComponent(topic)}` : "";
-      const res = await fetchApi(`/api/feed${topicQuery}`);
-      if (res.ok) {
-        const data = await res.json();
-        const items: CivicFeedItem[] = (data.entries || []).map((e: any) => ({
+      const res = await fetchApi(`/api/feed${topicQuery}`, { signal });
+      if (!res.ok) throw new Error(`Feed request failed (${res.status})`);
+      const data: FeedResponse = await res.json();
+      const items: CivicFeedItem[] = (data.entries || []).map((e) => ({
           id: e.item_id,
           title: e.title,
           municipality: e.municipality || "Virginia Beach",
@@ -140,22 +108,27 @@ export default function TownWatchApp() {
           page_end: e.page_end || e.page_start,
           doc_title: e.doc_title,
           locations: e.locations || [],
-        }));
-        setFeedItems(items);
+      }));
+      setFeedItems(items);
+      setFeedError(null);
 
-        const counts: Record<string, number> = {};
-        items.forEach((item) => {
-          counts[item.category] = (counts[item.category] || 0) + 1;
-        });
-        setTopicCounts(counts);
-      }
-    } catch (e) {
-      // Backend offline fallback
+      const counts: Record<string, number> = {};
+      items.forEach((item) => {
+        counts[item.category] = (counts[item.category] || 0) + 1;
+      });
+      setTopicCounts(counts);
+    } catch {
+      if (signal?.aborted) return;
+      setFeedError("Unable to load civic items. Check that the backend is running, then try again.");
     }
   }, []);
 
   useEffect(() => {
-    fetchFeed(selectedTopic);
+    const controller = new AbortController();
+    // Synchronize the selected topic with the backend feed.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchFeed(selectedTopic, controller.signal);
+    return () => controller.abort();
   }, [fetchFeed, selectedTopic]);
 
   const handleSelectFeedItem = (item: CivicFeedItem) => {
@@ -165,33 +138,6 @@ export default function TownWatchApp() {
       page: item.page_start,
       snippet: item.summary_bullets.length > 0 ? item.summary_bullets[0] : item.title,
     });
-    setActiveTab("pdf");
-    if (activeLayout === 5) {
-      setZenFocusedPane("secondary");
-    }
-  };
-
-  const handleSelectFeedParcel = (item: CivicFeedItem, parcelIndex: number) => {
-    setSelectedFeedItemId(item.id);
-    const loc = item.locations[parcelIndex];
-    if (loc) {
-      const markerId = `${item.id}-${loc.parcel_id || "loc"}`;
-      setActiveMarkerId(markerId);
-      setActiveTab("zoning");
-      if (activeLayout === 5) {
-        setZenFocusedPane("secondary");
-      }
-    }
-  };
-
-  const handleLawSelect = (docTitle: string) => {
-    const clean = docTitle.endsWith(".pdf") ? docTitle : `${docTitle}.pdf`;
-    setActiveCitation({
-      docTitle: clean,
-      page: 1,
-    });
-    setActiveTab("pdf");
-    setIsLegalModalOpen(false);
     if (activeLayout === 5) {
       setZenFocusedPane("secondary");
     }
@@ -206,17 +152,19 @@ export default function TownWatchApp() {
         savedLayout && ["1", "2", "3", "4", "5"].includes(savedLayout)
           ? (Number(savedLayout) as 1 | 2 | 3 | 4 | 5)
           : 1;
+      // Applying persisted UI preferences after hydration is intentional.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveLayout(layoutNum);
       if (typeof document !== "undefined") {
         document.documentElement.setAttribute("data-theme", String(layoutNum));
         document.body.className = `theme-${layoutNum}`;
       }
-    } catch (e) {
+    } catch {
       // Ignore localStorage access restrictions
     }
   }, []);
 
-  const handleUpdateLayout = (layout: 1 | 2 | 3 | 4 | 5) => {
+  const handleUpdateLayout = useCallback((layout: 1 | 2 | 3 | 4 | 5) => {
     setActiveLayout(layout);
     if (typeof document !== "undefined") {
       document.documentElement.setAttribute("data-theme", String(layout));
@@ -224,8 +172,10 @@ export default function TownWatchApp() {
     }
     try {
       localStorage.setItem("townwatch_layout", String(layout));
-    } catch (e) {}
-  };
+    } catch {
+      // Layout remains active for this session if storage is unavailable.
+    }
+  }, []);
 
   // Keyboard shortcut listener: 1, 2, 3, 4, 5 (guarded against inputs)
   useEffect(() => {
@@ -250,34 +200,7 @@ export default function TownWatchApp() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Fetch initial parcels from backend GeoJSON endpoint
-  useEffect(() => {
-    async function fetchParcels() {
-      try {
-        const res = await fetchApi("/api/map/parcels");
-        if (res.ok) {
-          const geojson = await res.json();
-          if (geojson.features && geojson.features.length > 0) {
-            const mapped = geojson.features.map((f: any) => ({
-              id: f.properties.id || `m-${Math.random()}`,
-              address: f.properties.address || "Municipal Parcel",
-              parcelId: f.properties.parcel_id,
-              coords: [f.geometry.coordinates[1], f.geometry.coordinates[0]],
-              ordinanceId: f.properties.ordinance_id,
-              page: f.properties.page || 1,
-              details: f.properties.summary,
-            }));
-            setMarkers(mapped);
-          }
-        }
-      } catch (e) {
-        // Backend not yet reachable, keep sample markers
-      }
-    }
-    fetchParcels();
-  }, []);
+  }, [handleUpdateLayout]);
 
   const handleSendMessage = async (query: string) => {
     const userMsg: ChatMessage = {
@@ -298,80 +221,61 @@ export default function TownWatchApp() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data: ChatApiResponse = await res.json();
         const botMsg: ChatMessage = {
           id: `msg-${Date.now() + 1}`,
           sender: "assistant",
           text: data.answer || "No details found.",
-          citations: (data.citations || []).map((c: any) => ({
-            docTitle: c.doc_title,
-            page: c.page,
-            snippet: c.snippet,
-            ordinanceId: c.doc_title,
-            hasZoningMap: data.active_tab_suggestion === "zoning",
+          citations: (data.citations || []).map((c) => ({
+            docTitle: c.doc_title || "Document",
+            page: c.page || 1,
+            snippet: c.snippet || "",
+            ordinanceId: c.ordinance_id || c.doc_title,
+            chapterId: c.chapter_id,
           })),
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
 
         setMessages((prev) => [...prev, botMsg]);
 
-        if (data.parcels && data.parcels.length > 0) {
-          const newParcels = data.parcels.map((p: any) => ({
-            id: p.id,
-            address: p.address,
-            parcelId: p.parcel_id,
-            coords: [p.coordinates[1], p.coordinates[0]],
-            ordinanceId: p.ordinance_id,
-            page: 1,
-            details: p.title,
-          }));
-          setMarkers(newParcels);
-          setActiveMarkerId(newParcels[0].id);
-        }
-
-        if (data.active_tab_suggestion === "zoning") {
-          setActiveTab("zoning");
-        }
       } else {
         throw new Error(`API returned ${res.status}`);
       }
-    } catch (err) {
-      // Fallback local synthesis response
-      const isZoningQuery =
-        query.toLowerCase().includes("zoning") ||
-        query.toLowerCase().includes("setback") ||
-        query.toLowerCase().includes("elm");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "unknown error";
       const botMsg: ChatMessage = {
         id: `msg-${Date.now() + 1}`,
         sender: "assistant",
-        text: isZoningQuery
-          ? "### Ordinance 2026-102: Residential Setback & Zoning Variance\n\n- **Council Action**: Approved reducing the minimum rear yard setback requirement from **25 feet to 15 feet** for multi-family residential construction.\n- **Subject Property**: Parcel **104-55-A** located at **450 North Elm Street**.\n- **Engineering Conditions**: Requires installation of an engineered stormwater runoff retention basin prior to occupancy certification.\n\n*The zoning boundaries and affected parcel lines have been mapped on the right.*"
-          : "### Municipal Agenda Synthesis Summary\n\n- **Tax & Budget Levies**: Maintained general property tax rate at **0.99 per $100** assessed valuation with balanced operational allocation.\n- **Capital Modernization**: City Council authorized $3,500,000 toward school STEM laboratory upgrades at 820 Atlantic Ave.\n- **Public Utilities & Safety**: Authorized emergency communications repeater antenna lease at 782 South Oak Street.",
-        citations: [
-          {
-            docTitle: "Virginia_Beach_City_Council_Agenda_2026.pdf",
-            page: isZoningQuery ? 2 : 1,
-            ordinanceId: isZoningQuery ? "ORD-2026-102" : "RES-2026-44",
-            snippet: isZoningQuery
-              ? "Ordinance 2026-102 approving setback reduction from 25ft to 15ft for Parcel 104-55-A on North Elm Street."
-              : "General tax levy and municipal operations budget review at $0.99 per $100 valuation.",
-            hasZoningMap: isZoningQuery,
-          },
-        ],
+        text: `The civic search request failed (${reason}). No answer was generated.`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
       setMessages((prev) => [...prev, botMsg]);
-      if (isZoningQuery) {
-        setActiveTab("zoning");
-        setActiveMarkerId("p-1");
-      }
     } finally {
       setIsStreaming(false);
     }
   };
 
   const handleUploadFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setMessages((prev) => [...prev, {
+        id: `msg-${Date.now()}`,
+        sender: "assistant",
+        text: "Choose a PDF file. The upload endpoint does not accept ZIP or JSON files.",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setMessages((prev) => [...prev, {
+        id: `msg-${Date.now()}`,
+        sender: "assistant",
+        text: "This PDF exceeds the 50 MB upload limit.",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      return;
+    }
+
     setIsStreaming(true);
     try {
       const formData = new FormData();
@@ -383,7 +287,7 @@ export default function TownWatchApp() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data: UploadApiResponse = await res.json();
         const categoriesList = Object.entries(data.categories_found || {})
           .map(([cat, count]) => `• **${cat}**: ${count} item(s)`)
           .join("\n");
@@ -391,7 +295,7 @@ export default function TownWatchApp() {
         const uploadMsg: ChatMessage = {
           id: `msg-${Date.now()}`,
           sender: "assistant",
-          text: `📥 **Successfully Ingested & Vectorized:** \`${data.filename}\`\n\n- **Total Pages**: ${data.total_pages}\n- **Synthesized Agenda Items**: ${data.total_items}\n- **Geocoded Parcels**: ${data.parcels_found}\n\n**Categories Identified:**\n${categoriesList}\n\nYou can now ask questions about this document or inspect parcel lines on the map!`,
+          text: `📥 **Successfully Ingested & Vectorized:** \`${data.filename}\`\n\n- **Total Pages**: ${data.total_pages}\n- **Synthesized Agenda Items**: ${data.total_items}\n- **Geocoded Parcels**: ${data.parcels_found}\n\n**Categories Identified:**\n${categoriesList}\n\nYou can now ask questions about this document and open cited pages in the PDF viewer.`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
         setMessages((prev) => [...prev, uploadMsg]);
@@ -400,35 +304,17 @@ export default function TownWatchApp() {
           docTitle: data.filename,
           page: 1,
         });
-
-        if (data.parcels_found > 0) {
-          const mapRes = await fetchApi("/api/map/parcels");
-          if (mapRes.ok) {
-            const geojson = await mapRes.json();
-            if (geojson.features) {
-              setMarkers(
-                geojson.features.map((f: any) => ({
-                  id: f.properties.id || `m-${Math.random()}`,
-                  address: f.properties.address || "Municipal Parcel",
-                  parcelId: f.properties.parcel_id,
-                  coords: [f.geometry.coordinates[1], f.geometry.coordinates[0]],
-                  ordinanceId: f.properties.ordinance_id,
-                  page: f.properties.page || 1,
-                  details: f.properties.summary,
-                }))
-              );
-            }
-          }
-        }
+        if (activeLayout === 5) setZenFocusedPane("secondary");
         fetchFeed(selectedTopic);
       } else {
         throw new Error(`Upload returned status ${res.status}`);
       }
-    } catch (e) {
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "unknown error";
       const uploadMsg: ChatMessage = {
         id: `msg-${Date.now()}`,
         sender: "assistant",
-        text: `📥 **Uploaded & Indexed:** \`${file.name}\` (${(file.size / 1024).toFixed(1)} KB)\n\nSegmented agenda items, identified parcel coordinates, and indexed into local vector database. Ready for civic search synthesis!`,
+        text: `The upload of **${file.name}** failed (${reason}). The file was not confirmed as indexed.`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       setMessages((prev) => [...prev, uploadMsg]);
@@ -451,16 +337,7 @@ export default function TownWatchApp() {
       page: citation.page || 1,
       snippet: citation.snippet,
     });
-    setActiveTab("pdf");
-
     // In Zen Focus layout (5), unhide secondary pane automatically
-    if (activeLayout === 5) {
-      setZenFocusedPane("secondary");
-    }
-  };
-
-  const handleShowZoningMap = () => {
-    setActiveTab("zoning");
     if (activeLayout === 5) {
       setZenFocusedPane("secondary");
     }
@@ -524,7 +401,7 @@ export default function TownWatchApp() {
                   borderRadius: 100,
                 }}
               >
-                Civic RAG Synthesis
+                Civic intelligence
               </span>
             </div>
             <p
@@ -536,12 +413,12 @@ export default function TownWatchApp() {
               }}
               className="sm:block"
             >
-              LLM Municipal Intelligence & Source Verification
+              Municipal updates, grounded in public records
             </p>
           </div>
         </div>
 
-        {/* Right: theme pills + document/zoning tab switcher */}
+        {/* Right: theme pills and PDF viewer indicator */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <div className="theme-pill-group">
             {([
@@ -555,6 +432,8 @@ export default function TownWatchApp() {
                 key={num}
                 onClick={() => handleUpdateLayout(num)}
                 title={`Theme ${num}: ${label} (Press '${num}')`}
+                aria-label={`Use ${label} theme and layout`}
+                aria-pressed={activeLayout === num}
                 className={`theme-pill${activeLayout === num ? " active" : ""}`}
               >
                 {icon}
@@ -565,28 +444,10 @@ export default function TownWatchApp() {
           </div>
 
           <div className="tab-pill-group">
-            <button
-              onClick={() => setActiveTab("pdf")}
-              className={`tab-pill${activeTab === "pdf" ? " active" : ""}`}
-            >
+            <span className="tab-pill active" aria-current="page">
               <FileText size={11} />
               <span className="hidden sm:inline">PDF Evidence</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("zoning")}
-              className={`tab-pill${activeTab === "zoning" ? " active" : ""}`}
-            >
-              <Map size={11} />
-              <span className="hidden sm:inline">Zoning Map</span>
-            </button>
-            <button
-              onClick={() => setIsLegalModalOpen(true)}
-              className="tab-pill"
-              title="Search Virginia General Assembly Acts & State Code (2016-2026)"
-            >
-              <Scale size={11} />
-              <span className="hidden sm:inline">VA Laws</span>
-            </button>
+            </span>
           </div>
         </div>
       </header>
@@ -603,44 +464,46 @@ export default function TownWatchApp() {
               : ""
           }`}
         >
-          {/* View Toggle Bar (AI Synthesis vs Civic Feed) */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-card/60 backdrop-blur shrink-0">
-            <div className="flex items-center gap-1.5">
+          {/* Assistant, civic feed, and locality-focused law view */}
+          <div className="left-mode-header shrink-0 border-b border-border bg-card/70 px-3 py-3">
+            <div className="left-mode-tabs" role="group" aria-label="TownWatch sections">
               <button
                 onClick={() => setLeftPanelMode("chat")}
-                className={`tab-pill${leftPanelMode === "chat" ? " active" : ""}`}
-                style={{ padding: "4px 10px", fontSize: "0.72rem" }}
+                aria-pressed={leftPanelMode === "chat"}
+                className={`tab-pill left-mode-tab${leftPanelMode === "chat" ? " active" : ""}`}
               >
-                <MessageSquare size={11} />
+                <MessageSquare size={14} />
                 <span>AI Assistant</span>
               </button>
               <button
                 onClick={() => setLeftPanelMode("feed")}
-                className={`tab-pill${leftPanelMode === "feed" ? " active" : ""}`}
-                style={{ padding: "4px 10px", fontSize: "0.72rem" }}
+                aria-pressed={leftPanelMode === "feed"}
+                className={`tab-pill left-mode-tab${leftPanelMode === "feed" ? " active" : ""}`}
               >
-                <Newspaper size={11} />
+                <Newspaper size={14} />
                 <span>Civic Feed</span>
                 {feedItems.length > 0 && (
-                  <span
-                    style={{
-                      fontSize: "0.62rem",
-                      fontWeight: 700,
-                      padding: "1px 5px",
-                      borderRadius: 100,
-                      background: leftPanelMode === "feed" ? "var(--primary-foreground)" : "var(--accent-primary)",
-                      color: leftPanelMode === "feed" ? "var(--primary)" : "#fff",
-                      marginLeft: 3,
-                    }}
-                  >
+                  <span className={`left-mode-count${leftPanelMode === "feed" ? " active" : ""}`}>
                     {feedItems.length}
                   </span>
                 )}
               </button>
+              <button
+                onClick={() => setLeftPanelMode("impact")}
+                aria-pressed={leftPanelMode === "impact"}
+                className={`tab-pill left-mode-tab${leftPanelMode === "impact" ? " active" : ""}`}
+              >
+                <MapPin size={14} />
+                <span>Your area</span>
+              </button>
             </div>
-            <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
-              {leftPanelMode === "chat" ? "Multi-Doc Grounded RAG" : "Indexed Council Agendas"}
-            </span>
+            <p className="left-mode-description">
+              {leftPanelMode === "chat"
+                ? "Answers grounded in your documents"
+                : leftPanelMode === "feed"
+                  ? "Recent council agenda items"
+                  : "Recent laws mentioning your locality"}
+            </p>
           </div>
 
           {leftPanelMode === "chat" ? (
@@ -651,32 +514,43 @@ export default function TownWatchApp() {
                 onSendMessage={handleSendMessage}
                 onUploadFile={handleUploadFile}
                 onCitationClick={handleCitationClick}
-                onShowZoningMap={handleShowZoningMap}
               />
             </div>
-          ) : (
+          ) : leftPanelMode === "feed" ? (
             <div className="flex-1 overflow-hidden flex flex-col bg-background">
               <TopicFilters
                 selectedCategory={selectedTopic}
                 onSelectCategory={(cat) => {
                   setSelectedTopic(cat);
-                  fetchFeed(cat);
                 }}
                 counts={topicCounts}
               />
+              {feedError && (
+                <div className="api-error-banner" role="status">
+                  <span>{feedError}</span>
+                  <button type="button" onClick={() => fetchFeed(selectedTopic)}>Retry</button>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto">
                 <CivicFeedList
                   items={feedItems}
                   selectedItemId={selectedFeedItemId}
                   onSelectItem={handleSelectFeedItem}
-                  onSelectParcel={handleSelectFeedParcel}
                 />
               </div>
             </div>
+          ) : (
+            <LocalImpactPanel
+              onOpenPdf={handleCitationClick}
+              onAskAboutBill={(query) => {
+                setLeftPanelMode("chat");
+                void handleSendMessage(query);
+              }}
+            />
           )}
         </section>
 
-        {/* Right Pane: Document & Zoning Evidence Verification */}
+        {/* Right Pane: PDF evidence viewer */}
         <section
           className={`h-full flex flex-col overflow-hidden ${
             activeLayout === 5
@@ -690,8 +564,7 @@ export default function TownWatchApp() {
             borderLeft: "0.5px solid var(--border-subtle)",
           }}
         >
-          {activeTab === "pdf" ? (
-            <div className="h-full w-full flex flex-col">
+          <div className="h-full w-full flex flex-col">
               <div
                 style={{
                   padding: "8px 16px",
@@ -729,45 +602,14 @@ export default function TownWatchApp() {
               </div>
               <div className="flex-1 overflow-hidden relative">
                 <PdfViewer
+                  key={activeCitation?.docTitle || "default-document"}
                   pdfUrl={`/api/documents/${
                     activeCitation?.docTitle || "Virginia_Beach_City_Council_Agenda_2026.pdf"
                   }`}
                   activeCitation={activeCitation}
                 />
               </div>
-            </div>
-          ) : (
-            <div className="h-full w-full flex flex-col">
-              <div
-                style={{
-                  padding: "8px 16px",
-                  borderBottom: "0.5px solid var(--border-subtle)",
-                  background: "var(--bg-panel)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontSize: "0.78rem",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <Map size={13} style={{ color: "#34C759" }} />
-                  <span style={{ fontWeight: 600, color: "var(--text-dark)" }}>
-                    Interactive Municipal Zoning & Boundary Lines
-                  </span>
-                </div>
-                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                  {markers.length} parcels identified
-                </span>
-              </div>
-              <div className="flex-1 overflow-hidden relative">
-                <ZoningMapViewer
-                  markers={markers}
-                  activeMarkerId={activeMarkerId}
-                  onSelectMarker={(m) => setActiveMarkerId(m.id)}
-                />
-              </div>
-            </div>
-          )}
+          </div>
         </section>
 
         {/* Zen mode quick-swap switcher (Layout 5) */}
@@ -795,20 +637,13 @@ export default function TownWatchApp() {
             >
               <ArrowLeftRight size={14} />
               <span>
-                Switch to {zenFocusedPane === "primary" ? (activeTab === "pdf" ? "PDF Evidence" : "Zoning Map") : "Civic AI Synthesis"}
+                Switch to {zenFocusedPane === "primary" ? "PDF Evidence" : "Civic AI Synthesis"}
               </span>
             </button>
           </div>
         )}
       </main>
 
-      {/* Virginia Legislative Law Finder Modal */}
-      <LegislativeSearchModal
-        isOpen={isLegalModalOpen}
-        onClose={() => setIsLegalModalOpen(false)}
-        apiBaseUrl={process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"}
-        onLawSelect={handleLawSelect}
-      />
     </div>
   );
 }

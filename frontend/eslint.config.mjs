@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Minified third-party PDF.js worker is vendored output, not app source.
+    "public/pdf.worker.min.mjs",
   ]),
 ]);
 

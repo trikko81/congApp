@@ -6,7 +6,6 @@ import {
   Upload,
   FileText,
   Sparkles,
-  MapPin,
   ExternalLink,
   Bot,
   User,
@@ -24,7 +23,7 @@ export interface CitationItem {
   paragraph?: number;
   snippet: string;
   ordinanceId?: string;
-  hasZoningMap?: boolean;
+  chapterId?: string;
 }
 
 export interface ChatMessage {
@@ -41,7 +40,6 @@ interface ChatPanelProps {
   onSendMessage: (query: string) => void;
   onUploadFile: (file: File) => void;
   onCitationClick: (citation: CitationItem) => void;
-  onShowZoningMap: () => void;
 }
 
 export default function ChatPanel({
@@ -50,7 +48,6 @@ export default function ChatPanel({
   onSendMessage,
   onUploadFile,
   onCitationClick,
-  onShowZoningMap,
 }: ChatPanelProps) {
   const [inputQuery, setInputQuery] = useState("");
   const [expandedEvidence, setExpandedEvidence] = useState<Record<string, boolean>>({});
@@ -127,9 +124,6 @@ export default function ChatPanel({
       paragraph: inlineCit.paragraph,
       snippet: inlineCit.snippet || "",
       ordinanceId: inlineCit.docTitle,
-      hasZoningMap:
-        targetDoc.toLowerCase().includes("zoning") ||
-        inlineCit.snippet?.toLowerCase().includes("zoning"),
     });
   };
 
@@ -141,6 +135,7 @@ export default function ChatPanel({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
+            disabled={isStreaming}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs transition cursor-pointer"
           >
             <Upload size={13} />
@@ -149,18 +144,20 @@ export default function ChatPanel({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.zip,.json"
+            accept=".pdf,application/pdf"
+            disabled={isStreaming}
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) onUploadFile(file);
+              e.target.value = "";
             }}
           />
         </div>
 
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-md">
           <Database size={11} className="text-primary" />
-          <span>Local Vector RAG Engine</span>
+          <span>Local document library</span>
         </div>
       </div>
 
@@ -229,20 +226,13 @@ export default function ChatPanel({
                                 title="Click to verify in PDF viewer"
                               >
                                 <FileText size={11} />
-                                <span>{cit.ordinanceId || "Citation"}: Page {cit.page}</span>
+                                <span>
+                                  {[cit.ordinanceId, cit.chapterId].filter(Boolean).join(" · ") || "Citation"}: Page {cit.page}
+                                </span>
                                 <ExternalLink size={10} />
                               </button>
                             ))}
 
-                            {msg.citations.some((c) => c.hasZoningMap) && (
-                              <button
-                                onClick={onShowZoningMap}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 text-[11px] font-semibold border border-emerald-500/20 transition cursor-pointer"
-                              >
-                                <MapPin size={11} />
-                                <span>View Zoning Boundaries</span>
-                              </button>
-                            )}
                           </div>
 
                           {/* Expandable Grounded Source Chunks Toggle */}
@@ -269,7 +259,15 @@ export default function ChatPanel({
                             {msg.citations.map((cit, i) => (
                               <div
                                 key={i}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => onCitationClick(cit)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    onCitationClick(cit);
+                                  }
+                                }}
                                 className="p-2 rounded bg-card hover:bg-card/80 border border-border transition cursor-pointer flex flex-col gap-1"
                               >
                                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
@@ -319,6 +317,7 @@ export default function ChatPanel({
           <Search size={14} className="text-muted-foreground shrink-0" />
           <input
             type="text"
+            aria-label="Search municipal agenda items"
             placeholder="Search & synthesize municipal agenda items, ordinances, or tax millage..."
             value={inputQuery}
             onChange={(e) => setInputQuery(e.target.value)}
@@ -328,6 +327,7 @@ export default function ChatPanel({
           <button
             type="submit"
             disabled={!inputQuery.trim() || isStreaming}
+            aria-label="Send message"
             className="h-7 w-7 rounded-lg bg-primary text-primary-foreground disabled:opacity-40 flex items-center justify-center hover:bg-primary/90 transition cursor-pointer shrink-0"
           >
             <Send size={13} />
